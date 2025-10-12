@@ -1,0 +1,9 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="container text-center">
+    <h1 class="display-4">Bienvenido a La Playita</h1>
+    <p class="lead">El sistema de punto de venta para gestionar tu negocio.</p>
+    <a href="{% url 'auth:login' %}" class="btn btn-primary btn-lg">Iniciar Sesión</a>
+</div>
+{% endblock %}

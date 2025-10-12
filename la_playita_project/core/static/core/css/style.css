@@ -1,0 +1,40 @@
+:root {
+    --primary-color: #ffffff;
+    --secondary-color: #f8f9fa;
+    --accent-color: #ffc107;
+    --text-color: #212529;
+}
+
+body {
+    background-color: var(--secondary-color);
+    color: var(--text-color);
+}
+
+.dashboard-card {
+    border: 1px solid var(--accent-color);
+    border-radius: .25rem;
+    padding: 1.5rem;
+    background-color: var(--primary-color);
+}
+
+.btn-warning {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+/* Estilos para formularios de autenticación */
+.auth-card {
+    border: 1px solid #dee2e6;
+    border-radius: .5rem;
+    padding: 2rem;
+    background-color: var(--primary-color);
+}
+
+.auth-card .form-label {
+    font-weight: 500;
+}
+
+.auth-card .alert-danger ul {
+    margin-bottom: 0;
+    padding-left: 1.5rem;
+}

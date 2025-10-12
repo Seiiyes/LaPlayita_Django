@@ -1,0 +1,42 @@
+{% extends "core/base.html" %}
+
+{% block title %}Dashboard - La Playita{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Dashboard de Administración</h1>
+<p class="lead">Bienvenido, aquí puedes ver un resumen del estado del negocio.</p>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card text-center bg-primary text-white">
+            <div class="card-body">
+                <i class="bi bi-currency-dollar display-4"></i>
+                <h5 class="card-title mt-2">Ingresos Hoy</h5>
+                <p class="card-text display-6">${{ ingresos_hoy|floatformat:2 }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card text-center {% if productos_bajos_stock > 0 %}bg-danger text-white{% else %}bg-success text-white{% endif %}">
+            <div class="card-body">
+                <i class="bi bi-exclamation-triangle display-4"></i>
+                <h5 class="card-title mt-2">Alertas de Stock</h5>
+                <p class="card-text display-6">{{ productos_bajos_stock }}</p>
+                <a href="{% url 'alertas_stock' %}" class="btn btn-light btn-sm mt-2">Ver Detalles</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card text-center bg-info text-white">
+            <div class="card-body">
+                <i class="bi bi-boxes display-4"></i>
+                <h5 class="card-title mt-2">Total Productos</h5>
+                <p class="card-text display-6">{{ total_productos }}</p>
+                <a href="{% url 'inventario_list' %}" class="btn btn-light btn-sm mt-2">Ir a Inventario</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

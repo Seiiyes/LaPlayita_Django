@@ -1,0 +1,22 @@
+# Ignora la carpeta del entorno virtual (CRÍTICO)
+venv/
+env/
+.venv/
+*/venv/
+
+# Archivos de la base de datos de desarrollo SQLite (Si se creara accidentalmente)
+# Lo mantenemos como precaución aunque uses MariaDB.
+db.sqlite3
+la_playita_project/db.sqlite3
+
+# Archivos de caché y compilados (Mantenibilidad ISO/IEC 25010)
+*.pyc
+__pycache__/
+
+# Archivos de logs y media de usuarios (Si se configuraran)
+*.log
+/media/
+
+# Archivos de configuración sensibles (Seguridad ISO/IEC 27001)
+local_settings.py
+.env
