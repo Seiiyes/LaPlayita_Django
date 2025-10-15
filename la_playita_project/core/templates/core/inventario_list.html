@@ -1,0 +1,142 @@
+{% extends 'core/base.html' %}
+{% load auth_extras %}
+{% load static %}
+
+{% block title %}Inventario de Productos{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Alertas de Mensajes -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Inventario de Productos</h1>
+        {% if request.user|has_role:'Admin' or request.user|has_role:'Vendedor' %}
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createProductModal">
+                <i class="fas fa-plus me-2"></i>Crear Producto
+            </button>
+        {% endif %}
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Producto</th>
+                            <th>Categoría</th>
+                            <th>Precio Unitario</th>
+                            <th>Stock Actual</th>
+                            <th>Stock Mínimo</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for producto in productos %}
+                            {% with stock_warning_level=producto.stock_minimo|add:5 %}
+                            <tr 
+                                {% if producto.stock_actual <= producto.stock_minimo %} class="table-danger" 
+                                {% elif producto.stock_actual <= stock_warning_level %} class="table-warning" {% endif %}>
+                                <td><strong>{{ producto.nombre }}</strong></td>
+                                <td>{{ producto.categoria.nombre }}</td>
+                                <td>${{ producto.precio_unitario|floatformat:2 }}</td>
+                                <td>{{ producto.stock_actual|default:0 }}</td>
+                                <td>{{ producto.stock_minimo }}</td>
+                                <td class="text-center">
+                                    {% if producto.stock_actual <= producto.stock_minimo %}
+                                        <span class="badge bg-danger">Bajo Stock</span>
+                                    {% elif producto.stock_actual <= stock_warning_level %}
+                                        <span class="badge bg-warning text-dark">Próximo a Agotarse</span>
+                                    {% else %}
+                                        <span class="badge bg-success">En Stock</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if request.user|has_role:'Admin' %}
+                                        <a href="{% url 'lote_list' producto.pk %}" class="btn btn-sm btn-info" title="Trazabilidad (Lotes)">
+                                            <i class="fas fa-boxes"></i>
+                                        </a>
+                                    {% endif %}
+                                    {% if request.user|has_role:'Admin' or request.user|has_role:'Vendedor' %}
+                                        <a href="{% url 'producto_update' producto.pk %}" class="btn btn-sm btn-warning" title="Editar Producto">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                    {% endif %}
+                                    {% if request.user|has_role:'Admin' %}
+                                        <form action="{% url 'producto_delete' producto.pk %}" method="post" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este producto?');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Eliminar Producto">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endwith %}
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center">No hay productos registrados.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear Producto -->
+<div class="modal fade" id="createProductModal" tabindex="-1" aria-labelledby="createProductModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{% url 'producto_create' %}" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createProductModalLabel">Crear Nuevo Producto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {% include 'core/producto_form_fields.html' %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear Categoría -->
+<div class="modal fade" id="createCategoryModal" tabindex="-1" aria-labelledby="createCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form action="{% url 'categoria_create' %}" method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createCategoryModalLabel">Crear Nueva Categoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="id_nombre_categoria" class="form-label">{{ categoria_form.nombre.label }}</label>
+                        {{ categoria_form.nombre }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Categoría</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

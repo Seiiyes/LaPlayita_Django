@@ -1,0 +1,28 @@
+{% csrf_token %}
+<div class="mb-3">
+    <label for="id_nombre" class="form-label">{{ form.nombre.label }}</label>
+    {{ form.nombre }}
+</div>
+<div class="mb-3">
+    <label for="id_categoria" class="form-label">{{ form.categoria.label }}</label>
+    <div class="input-group">
+        {{ form.categoria }}
+        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#createCategoryModal">
+            <i class="fas fa-plus"></i>
+        </button>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label for="id_precio_unitario" class="form-label">{{ form.precio_unitario.label }}</label>
+        {{ form.precio_unitario }}
+    </div>
+    <div class="col-md-6 mb-3">
+        <label for="id_stock_minimo" class="form-label">{{ form.stock_minimo.label }}</label>
+        {{ form.stock_minimo }}
+    </div>
+</div>
+<div class="mb-3">
+    <label for="id_descripcion" class="form-label">{{ form.descripcion.label }}</label>
+    {{ form.descripcion }}
+</div>

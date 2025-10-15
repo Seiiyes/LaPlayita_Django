@@ -1,40 +1,181 @@
+/*
+ * La Playita POS - Custom Stylesheet
+ * Paleta de Colores Inspirada en el Logo:
+ * - Primario (Azul/Turquesa): #00A7B5
+ * - Acento (Naranja/Coral): #FF5733
+ * - Fondo Claro: #F0F8FF (AliceBlue)
+ * - Texto Principal: #333
+ */
+
 :root {
-    --primary-color: #ffffff;
-    --secondary-color: #f8f9fa;
-    --accent-color: #ffc107;
-    --text-color: #212529;
+    --primary-color: #00A7B5; /* Azul/Turquesa del logo */
+    --accent-color: #FF5733;  /* Naranja/Coral para acentos */
+    --light-bg: #F0F8FF;      /* Un fondo muy claro, como la espuma del mar */
+    --text-color: #333;
+    --white: #FFFFFF;
+    --gray-light: #f8f9fa;
+    --gray-dark: #343a40;
+    --border-color: #dee2e6;
+    --danger-color: #dc3545;
 }
 
 body {
-    background-color: var(--secondary-color);
+    background-color: var(--light-bg);
     color: var(--text-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.dashboard-card {
-    border: 1px solid var(--accent-color);
-    border-radius: .25rem;
-    padding: 1.5rem;
+/* --- Utilities --- */
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #008590; /* Un poco más oscuro */
+    border-color: #008590;
+    transform: translateY(-2px);
+}
+
+/* --- Navbar --- */
+.lp-navbar {
     background-color: var(--primary-color);
 }
 
-.btn-warning {
-    background-color: var(--accent-color);
-    border-color: var(--accent-color);
+.lp-navbar .navbar-brand,
+.lp-navbar .nav-link {
+    color: var(--white);
 }
 
-/* Estilos para formularios de autenticación */
-.auth-card {
-    border: 1px solid #dee2e6;
-    border-radius: .5rem;
+.lp-navbar .nav-link:hover {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.lp-navbar .navbar-toggler {
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.lp-navbar .navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.8%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* --- Landing Page --- */
+.landing-hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+    text-align: center;
+    background: linear-gradient(135deg, #a2d2ff 0%, #bde0fe 100%);
     padding: 2rem;
+    border-radius: 0.5rem;
+}
+
+.landing-logo {
+    max-width: 150px;
+    margin-bottom: 2rem;
+}
+
+/* --- Authentication Pages --- */
+.auth-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.auth-card {
+    width: 90%; /* Ocupa el 90% en pantallas pequeñas */
+    max-width: 450px;
+    border: none;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.auth-card-header {
     background-color: var(--primary-color);
+    padding: 2rem;
+    text-align: center;
 }
 
-.auth-card .form-label {
-    font-weight: 500;
+.auth-logo {
+    max-height: 120px; /* Altura máxima del logo como banner */
+    width: auto;
+    margin-bottom: 1rem;
 }
 
-.auth-card .alert-danger ul {
-    margin-bottom: 0;
-    padding-left: 1.5rem;
+.auth-card-header h2 {
+    color: var(--white);
+    font-weight: 700;
+    margin: 0;
+}
+
+.auth-card-body {
+    padding: 2rem;
+}
+
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(0, 167, 181, 0.25);
+}
+
+/* --- Validation Messages Styling --- */
+.password-validation-help {
+    font-size: 0.875em;
+    color: #6c757d;
+}
+
+.password-validation-help ul {
+    list-style-type: none;
+    padding-left: 0;
+    margin-top: 0.5rem;
+}
+
+.password-validation-help li {
+    margin-bottom: 0.25rem;
+    padding-left: 1.25rem;
+    position: relative;
+}
+
+/* Icono para cada item de la lista */
+.password-validation-help li::before {
+    content: '•';
+    color: var(--primary-color);
+    font-weight: bold;
+    display: inline-block;
+    width: 1em;
+    margin-left: -1.25rem;
+    position: absolute;
+    left: 0;
+}
+
+.text-danger {
+    color: var(--danger-color) !important;
+}
+
+.auth-card-footer {
+    background-color: var(--gray-light);
+    padding: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.auth-card-footer a {
+    color: var(--primary-color);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.auth-card-footer a:hover {
+    text-decoration: underline;
+}
+
+/* Responsive adjustments */
+@media (min-width: 576px) {
+    .auth-card {
+        width: 100%; /* Ancho normal en pantallas más grandes */
+    }
 }

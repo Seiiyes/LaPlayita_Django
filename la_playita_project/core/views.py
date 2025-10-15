@@ -1,167 +1,199 @@
 # C:\laplayita\la_playita_project\core\views.py
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse
-from .models import (
-    Producto, Categoria, Cliente, MovimientoInventario, 
-    Venta, Pqrs 
-)
-from django.db.models import Sum, F 
-from datetime import date
-from django.db import models # Importar 'models' para F() en las consultas
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import login
-from django.contrib.auth.models import Group
-from .decorators import group_required
+from django.views.decorators.http import require_POST
+from django.contrib import messages
+from datetime import date, timedelta
+from django.db import models
+
+from .models import Producto, Lote
+from .forms import VendedorRegistrationForm, ProductoForm, LoteForm, CategoriaForm
+from .decorators import check_user_role
 
 # ----------------------------------------------
 # Vistas de Autenticación y Flujo
 # ----------------------------------------------
 
 def landing_view(request):
-    """Muestra la landing page a usuarios no autenticados."""
     if request.user.is_authenticated:
         return redirect('login_redirect')
     return render(request, 'core/landing.html')
 
 @login_required
 def login_redirect_view(request):
-    """Redirige a los usuarios según su rol (grupo)."""
-    if request.user.groups.filter(name='Admin').exists():
-        return redirect('admin:index')
-    elif request.user.groups.filter(name='Cashier').exists():
-        return redirect('dashboard')
-    else:
-        # Por defecto, si no tiene un rol asignado, va al dashboard.
-        # Opcional: podrías redirigirlo a una página de "espera de aprobación".
-        return redirect('dashboard')
+    if request.user.is_authenticated:
+        user = request.user
+        if user.rol_id in [1, 2]: # Admin y Vendedor
+            return redirect('dashboard')
+    return redirect('auth_login')
 
 def register_view(request):
-    """Maneja el registro de nuevos Vendedores."""
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = VendedorRegistrationForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            try:
-                vendedor_group = Group.objects.get(name='Vendedor')
-                user.groups.add(vendedor_group)
-            except Group.DoesNotExist:
-                # Este es un error de configuración del servidor.
-                # El grupo 'Vendedor' debe existir.
-                # Se podría loggear este error.
-                pass
-            return redirect('login')
+            form.save()
+            messages.success(request, '¡Registro exitoso! Ahora puedes iniciar sesión.')
+            return redirect('auth_login')
     else:
-        form = UserCreationForm()
-    
-    context = {
-        'form': form
-    }
-    return render(request, 'registration/register.html', context)
-
+        form = VendedorRegistrationForm()
+    return render(request, 'registration/register.html', {'form': form})
 
 # ----------------------------------------------
-# 1. Dashboard y Alertas (HU-001, HU-004)
+# Dashboard
 # ----------------------------------------------
 
-@group_required('Admin', 'Cashier')
+@login_required
+@check_user_role(allowed_roles=[1, 2])
 def dashboard_view(request):
-    """Muestra el Dashboard principal con métricas clave y el acceso a alertas."""
-    
-    # 1. Calcular productos con stock bajo (HU-004)
-    productos_en_alerta_qs = Producto.objects.annotate(
-        stock_actual=Sum('lote__cantidad_disponible')
-    ).filter(stock_actual__lt=F('stock_minimo'))
-    
-    # 2. Calcular métricas clave
-    try:
-        ventas_hoy_data = Venta.objects.filter(fecha_venta__date=date.today()).aggregate(
-            total_ingreso=Sum('ventadetalle__subtotal')
-        )
-        ingresos_hoy = ventas_hoy_data.get('total_ingreso') or 0
-    except:
-        ingresos_hoy = 0
-    
+    productos_count = Producto.objects.count()
+    productos_bajos_stock = Producto.objects.filter(stock_actual__lt=models.F('stock_minimo')).count()
     context = {
-        'total_productos': Producto.objects.count(),
-        'productos_bajos_stock': productos_en_alerta_qs.count(),
-        'ingresos_hoy': ingresos_hoy, 
+        'total_productos': productos_count,
+        'productos_bajos_stock': productos_bajos_stock,
     }
     return render(request, 'core/dashboard.html', context)
 
-@group_required('Admin', 'Cashier')
-def alertas_stock(request):
-    """Vista detallada de los productos con stock bajo (HU-004)."""
-    productos_en_alerta = Producto.objects.annotate(
-        stock_actual=Sum('lote__cantidad_disponible')
-    ).filter(stock_actual__lt=F('stock_minimo'))
-    
-    return render(request, 'core/alertas_stock.html', {'productos': productos_en_alerta})
-
-
 # ----------------------------------------------
-# 2. Gestión de Inventario (HU-003, RF-1, RF-2)
+# Vistas de Gestión de Productos
 # ----------------------------------------------
 
-@group_required('Admin', 'Cashier')
+@login_required
+@check_user_role(allowed_roles=[1, 2])
 def inventario_list(request):
-    """Lista todos los productos agrupados por Categoría (HU-003)."""
-    categorias = Categoria.objects.annotate(
-        total_stock=Sum('producto__lote__cantidad_disponible')
-    ).prefetch_related('producto_set').all()
-    
+    productos = Producto.objects.select_related('categoria').all()
+    form = ProductoForm() # Formulario vacío para el modal
+    categoria_form = CategoriaForm() # Formulario vacío para el modal de categorías
     context = {
-        'categorias': categorias
+        'productos': productos,
+        'form': form,
+        'categoria_form': categoria_form,
     }
     return render(request, 'core/inventario_list.html', context)
 
-@group_required('Admin')
+@login_required
+@check_user_role(allowed_roles=[1, 2])
+def alertas_stock_list(request):
+    productos = Producto.objects.filter(stock_actual__lt=models.F('stock_minimo')).select_related('categoria')
+    form = ProductoForm()
+    context = {
+        'productos': productos,
+        'form': form,
+        'alertas_stock': True,
+    }
+    return render(request, 'core/inventario_list.html', context)
 
+@login_required
+@require_POST
+@check_user_role(allowed_roles=[1, 2])
 def producto_create(request):
-    """Vista para crear un nuevo Producto (RF-1)."""
-    # Lógica de Forms de Django
-    if request.method == 'POST':
-        # Código para guardar el nuevo producto...
-        return redirect('inventario_list')
-    return render(request, 'core/producto_form.html')
+    form = ProductoForm(request.POST)
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'Producto creado exitosamente.')
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, f"{form.fields[field].label}: {error}")
+    return redirect('inventario_list')
 
-@group_required('Admin')
-def producto_detalle(request, pk):
-    """Vista para ver el detalle de un producto."""
-    # Lógica para obtener y mostrar un producto
-    return render(request, 'core/producto_detalle.html')
-
-@group_required('Admin')
+@login_required
+@check_user_role(allowed_roles=[1, 2])
 def producto_update(request, pk):
-    """Vista para actualizar un producto."""
-    # Lógica de Forms de Django
+    producto = get_object_or_404(Producto, pk=pk)
     if request.method == 'POST':
-        # Código para actualizar el producto...
-        return redirect('inventario_list')
-    return render(request, 'core/producto_form.html')
+        form = ProductoForm(request.POST, instance=producto)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Producto actualizado exitosamente.')
+            return redirect('inventario_list')
+    else:
+        form = ProductoForm(instance=producto)
+    return render(request, 'core/producto_form.html', {'form': form, 'producto': producto})
 
-def pos_view(request):
-    """Vista para el punto de venta."""
-    return render(request, 'core/pos.html')
+@login_required
+@require_POST
+@check_user_role(allowed_roles=[1]) # Solo Admin puede eliminar
+def producto_delete(request, pk):
+    producto = get_object_or_404(Producto, pk=pk)
+    producto.delete()
+    messages.success(request, 'Producto eliminado exitosamente.')
+    return redirect('inventario_list')
 
-def registrar_venta(request):
-    """Endpoint para registrar una venta."""
-    return redirect('pos_view')
+@login_required
+@require_POST
+@check_user_role(allowed_roles=[1, 2])
+def categoria_create(request):
+    form = CategoriaForm(request.POST)
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'Categoría creada exitosamente.')
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, f"{form.fields[field].label}: {error}")
+    return redirect('inventario_list')
 
-def reportes_home(request):
-    """Vista para la página principal de reportes."""
-    return render(request, 'core/reportes_home.html')
+# ----------------------------------------------
+# Vistas de Gestión de Lotes (Trazabilidad)
+# ----------------------------------------------
 
-def reporte_ventas_periodo(request):
-    """Vista para el reporte de ventas por período."""
-    return render(request, 'core/reporte_ventas.html')
+@login_required
+@check_user_role(allowed_roles=[1]) # Solo Admin
+def lote_list(request, producto_pk):
+    producto = get_object_or_404(Producto, pk=producto_pk)
+    lotes = Lote.objects.filter(producto=producto).order_by('-fecha_entrada')
+    form = LoteForm(initial={'producto': producto})
+    
+    today = date.today()
+    thirty_days_from_now = today + timedelta(days=30)
 
-def reporte_pqrs(request):
-    """Vista para el reporte de PQRS."""
-    return render(request, 'core/reporte_pqrs.html')
+    context = {
+        'lotes': lotes,
+        'producto': producto,
+        'form': form,
+        'today': today,
+        'thirty_days_from_now': thirty_days_from_now,
+    }
+    return render(request, 'core/lote_list.html', context)
 
-def cliente_list(request):
-    """Vista para listar los clientes."""
-    return render(request, 'core/cliente_list.html')
+@login_required
+@require_POST
+@check_user_role(allowed_roles=[1]) # Solo Admin
+def lote_create(request, producto_pk):
+    producto = get_object_or_404(Producto, pk=producto_pk)
+    form = LoteForm(request.POST)
+    if form.is_valid():
+        lote = form.save(commit=False)
+        lote.producto = producto
+        lote.save()
+        messages.success(request, 'Lote registrado exitosamente.')
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, f"{form.fields[field].label}: {error}")
+    return redirect('lote_list', producto_pk=producto.pk)
 
-# ... (el resto de las vistas se pueden proteger de manera similar)
+@login_required
+@check_user_role(allowed_roles=[1]) # Solo Admin
+def lote_update(request, pk):
+    lote = get_object_or_404(Lote, pk=pk)
+    if request.method == 'POST':
+        form = LoteForm(request.POST, instance=lote)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Lote actualizado exitosamente.')
+            return redirect('lote_list', producto_pk=lote.producto.pk)
+    else:
+        form = LoteForm(instance=lote)
+    return render(request, 'core/lote_form.html', {'form': form, 'lote': lote})
+
+@login_required
+@require_POST
+@check_user_role(allowed_roles=[1]) # Solo Admin
+def lote_delete(request, pk):
+    lote = get_object_or_404(Lote, pk=pk)
+    producto_pk = lote.producto.pk
+    lote.delete()
+    messages.success(request, 'Lote eliminado exitosamente.')
+    return redirect('lote_list', producto_pk=producto_pk)
