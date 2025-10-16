@@ -53,8 +53,8 @@ class CategoriaForm(forms.ModelForm):
         }
 
 class LoteForm(forms.ModelForm):
-    cantidad_inicial = forms.IntegerField(
-        label="Cantidad Inicial",
+    cantidad_disponible = forms.IntegerField(
+        label="Cantidad",
         validators=[MinValueValidator(1)],
         widget=forms.NumberInput(attrs={'class': 'form-control'})
     )
@@ -69,23 +69,11 @@ class LoteForm(forms.ModelForm):
     class Meta:
         model = Lote
         fields = [
-            'producto', 'numero_lote', 'cantidad_inicial', 'costo_unitario', 
-            'fecha_caducidad', 'proveedor'
+            'producto', 'numero_lote', 'cantidad_disponible', 'costo_unitario', 
+            'fecha_caducidad'
         ]
         widgets = {
             'producto': forms.Select(attrs={'class': 'form-select'}),
             'numero_lote': forms.TextInput(attrs={'class': 'form-control'}),
             'fecha_caducidad': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'proveedor': forms.Select(attrs={'class': 'form-select'}),
         }
-
-    def save(self, commit=True):
-        """
-        Al crear un nuevo lote, la cantidad disponible es igual a la cantidad inicial.
-        """
-        instance = super().save(commit=False)
-        if not instance.pk:  # Solo al crear
-            instance.cantidad_disponible = instance.cantidad_inicial
-        if commit:
-            instance.save()
-        return instance

@@ -171,12 +171,10 @@ class Producto(models.Model):
 class Lote(models.Model):
     producto = models.ForeignKey(Producto, models.CASCADE)
     numero_lote = models.CharField(max_length=50)
-    cantidad_inicial = models.PositiveIntegerField()
     cantidad_disponible = models.PositiveIntegerField()
     costo_unitario = models.DecimalField(max_digits=12, decimal_places=2, db_column='costo_unitario_lote')
     fecha_caducidad = models.DateField()
     fecha_entrada = models.DateTimeField(default=timezone.now)
-    proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return f"Lote {self.numero_lote} ({self.producto.nombre})"

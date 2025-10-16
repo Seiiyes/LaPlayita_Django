@@ -4,7 +4,7 @@ from functools import wraps
 
 def check_user_role(allowed_roles=[]):
     """
-    Decorador para verificar si el rol_id de un usuario está en una lista de roles permitidos.
+    Decorador para verificar si el nombre del rol de un usuario está en una lista de roles permitidos.
     Redirige si el usuario no está autenticado o no tiene el rol requerido.
     """
     def decorator(view_func):
@@ -14,7 +14,7 @@ def check_user_role(allowed_roles=[]):
                 messages.error(request, "Debes iniciar sesión para acceder a esta página.")
                 return redirect('auth_login')
 
-            if request.user.rol_id not in allowed_roles:
+            if not request.user.rol or request.user.rol.nombre not in allowed_roles:
                 messages.error(request, "No tienes los permisos necesarios para ver esta página.")
                 # Redirige al dashboard o a una página principal si no tienen permiso.
                 return redirect('dashboard') 

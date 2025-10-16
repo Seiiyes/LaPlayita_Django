@@ -1,12 +1,15 @@
 # C:\laplayita\la_playita_project\core\urls.py
 from django.urls import path
 from . import views
+from django.contrib.auth import views as auth_views
 
 urlpatterns = [
     # ----------------------------------------------
     # Autenticación y Flujo Principal
     # ----------------------------------------------
     path('', views.landing_view, name='landing'),
+    path('accounts/login/', views.CustomLoginView.as_view(), name='login'),
+    path('accounts/logout/', auth_views.LogoutView.as_view(next_page='landing'), name='logout'),
     path('accounts/register/', views.register_view, name='register'),
     path('accounts/profile/', views.login_redirect_view, name='login_redirect'),
     path('dashboard/', views.dashboard_view, name='dashboard'),
@@ -31,6 +34,6 @@ urlpatterns = [
 
     # Se mantienen otras rutas por si son necesarias en el futuro, pero se pueden limpiar.
     # path('venta/', views.pos_view, name='pos_view'),
-    # path('reportes/', views.reportes_home, name='reportes_home'),
-    # path('clientes/', views.cliente_list, name='cliente_list'),
+    path('reportes/', views.reportes_home, name='reportes_home'),
+    path('clientes/', views.cliente_list, name='cliente_list'),
 ]

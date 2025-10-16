@@ -37,10 +37,8 @@
                     <thead class="table-light">
                         <tr>
                             <th>Número de Lote</th>
-                            <th>Cant. Inicial</th>
                             <th>Cant. Disponible</th>
                             <th>Costo Unitario</th>
-                            <th>Proveedor</th>
                             <th>Fecha Caducidad</th>
                             <th class="text-center">Estado</th>
                             <th class="text-center">Acciones</th>
@@ -52,10 +50,8 @@
                                 {% if lote.fecha_caducidad < today %} class="table-danger" 
                                 {% elif lote.fecha_caducidad < thirty_days_from_now %} class="table-warning" {% endif %}>
                                 <td><strong>{{ lote.numero_lote }}</strong></td>
-                                <td>{{ lote.cantidad_inicial }}</td>
                                 <td>{{ lote.cantidad_disponible }}</td>
                                 <td>${{ lote.costo_unitario|floatformat:2 }}</td>
-                                <td>{{ lote.proveedor.nombre_empresa|default:"N/A" }}</td>
                                 <td>{{ lote.fecha_caducidad|date:"d/m/Y" }}</td>
                                 <td class="text-center">
                                     {% if lote.fecha_caducidad < today %}
@@ -80,7 +76,7 @@
                             </tr>
                         {% empty %}
                             <tr>
-                                <td colspan="8" class="text-center">No hay lotes registrados para este producto.</td>
+                                <td colspan="6" class="text-center">No hay lotes registrados para este producto.</td>
                             </tr>
                         {% endfor %}
                     </tbody>

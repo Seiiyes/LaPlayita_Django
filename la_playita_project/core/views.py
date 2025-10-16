@@ -9,7 +9,18 @@ from django.db import models
 
 from .models import Producto, Lote
 from .forms import VendedorRegistrationForm, ProductoForm, LoteForm, CategoriaForm
+from django.contrib.auth.views import LoginView
 from .decorators import check_user_role
+
+
+class CustomLoginView(LoginView):
+    template_name = 'registration/login.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        if self.request.user.is_authenticated:
+            return redirect('dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
 
 # ----------------------------------------------
 # Vistas de Autenticación y Flujo
@@ -24,7 +35,7 @@ def landing_view(request):
 def login_redirect_view(request):
     if request.user.is_authenticated:
         user = request.user
-        if user.rol_id in [1, 2]: # Admin y Vendedor
+        if user.rol and user.rol.nombre in ['Administrador', 'Vendedor']:
             return redirect('dashboard')
     return redirect('auth_login')
 
@@ -44,7 +55,7 @@ def register_view(request):
 # ----------------------------------------------
 
 @login_required
-@check_user_role(allowed_roles=[1, 2])
+@check_user_role(allowed_roles=['Administrador', 'Vendedor'])
 def dashboard_view(request):
     productos_count = Producto.objects.count()
     productos_bajos_stock = Producto.objects.filter(stock_actual__lt=models.F('stock_minimo')).count()
@@ -59,7 +70,7 @@ def dashboard_view(request):
 # ----------------------------------------------
 
 @login_required
-@check_user_role(allowed_roles=[1, 2])
+@check_user_role(allowed_roles=['Administrador', 'Vendedor'])
 def inventario_list(request):
     productos = Producto.objects.select_related('categoria').all()
     form = ProductoForm() # Formulario vacío para el modal
@@ -72,7 +83,7 @@ def inventario_list(request):
     return render(request, 'core/inventario_list.html', context)
 
 @login_required
-@check_user_role(allowed_roles=[1, 2])
+@check_user_role(allowed_roles=['Administrador', 'Vendedor'])
 def alertas_stock_list(request):
     productos = Producto.objects.filter(stock_actual__lt=models.F('stock_minimo')).select_related('categoria')
     form = ProductoForm()
@@ -85,7 +96,7 @@ def alertas_stock_list(request):
 
 @login_required
 @require_POST
-@check_user_role(allowed_roles=[1, 2])
+@check_user_role(allowed_roles=['Administrador', 'Vendedor'])
 def producto_create(request):
     form = ProductoForm(request.POST)
     if form.is_valid():
@@ -98,7 +109,7 @@ def producto_create(request):
     return redirect('inventario_list')
 
 @login_required
-@check_user_role(allowed_roles=[1, 2])
+@check_user_role(allowed_roles=['Administrador', 'Vendedor'])
 def producto_update(request, pk):
     producto = get_object_or_404(Producto, pk=pk)
     if request.method == 'POST':
@@ -113,7 +124,7 @@ def producto_update(request, pk):
 
 @login_required
 @require_POST
-@check_user_role(allowed_roles=[1]) # Solo Admin puede eliminar
+@check_user_role(allowed_roles=['Administrador']) # Solo Admin puede eliminar
 def producto_delete(request, pk):
     producto = get_object_or_404(Producto, pk=pk)
     producto.delete()
@@ -122,7 +133,7 @@ def producto_delete(request, pk):
 
 @login_required
 @require_POST
-@check_user_role(allowed_roles=[1, 2])
+@check_user_role(allowed_roles=['Administrador', 'Vendedor'])
 def categoria_create(request):
     form = CategoriaForm(request.POST)
     if form.is_valid():
@@ -139,7 +150,7 @@ def categoria_create(request):
 # ----------------------------------------------
 
 @login_required
-@check_user_role(allowed_roles=[1]) # Solo Admin
+@check_user_role(allowed_roles=['Administrador']) # Solo Admin
 def lote_list(request, producto_pk):
     producto = get_object_or_404(Producto, pk=producto_pk)
     lotes = Lote.objects.filter(producto=producto).order_by('-fecha_entrada')
@@ -159,7 +170,7 @@ def lote_list(request, producto_pk):
 
 @login_required
 @require_POST
-@check_user_role(allowed_roles=[1]) # Solo Admin
+@check_user_role(allowed_roles=['Administrador']) # Solo Admin
 def lote_create(request, producto_pk):
     producto = get_object_or_404(Producto, pk=producto_pk)
     form = LoteForm(request.POST)
@@ -175,7 +186,7 @@ def lote_create(request, producto_pk):
     return redirect('lote_list', producto_pk=producto.pk)
 
 @login_required
-@check_user_role(allowed_roles=[1]) # Solo Admin
+@check_user_role(allowed_roles=['Administrador']) # Solo Admin
 def lote_update(request, pk):
     lote = get_object_or_404(Lote, pk=pk)
     if request.method == 'POST':
@@ -190,10 +201,26 @@ def lote_update(request, pk):
 
 @login_required
 @require_POST
-@check_user_role(allowed_roles=[1]) # Solo Admin
+@check_user_role(allowed_roles=['Administrador']) # Solo Admin
 def lote_delete(request, pk):
     lote = get_object_or_404(Lote, pk=pk)
     producto_pk = lote.producto.pk
     lote.delete()
     messages.success(request, 'Lote eliminado exitosamente.')
     return redirect('lote_list', producto_pk=producto_pk)
+
+@login_required
+@check_user_role(allowed_roles=['Administrador'])
+def reportes_home(request):
+    """
+    Vista de marcador de posición para la página de reportes.
+    """
+    return render(request, 'core/placeholder.html')
+
+@login_required
+@check_user_role(allowed_roles=['Administrador'])
+def cliente_list(request):
+    """
+    Vista de marcador de posición para la lista de clientes.
+    """
+    return render(request, 'core/placeholder.html')
