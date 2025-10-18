@@ -58,7 +58,7 @@ class LoteForm(forms.ModelForm):
         validators=[MinValueValidator(1)],
         widget=forms.NumberInput(attrs={'class': 'form-control'})
     )
-    costo_unitario = forms.DecimalField(
+    costo_unitario_lote = forms.DecimalField(
         label="Costo por Unidad",
         max_digits=12,
         decimal_places=2,
@@ -69,7 +69,7 @@ class LoteForm(forms.ModelForm):
     class Meta:
         model = Lote
         fields = [
-            'producto', 'numero_lote', 'cantidad_disponible', 'costo_unitario', 
+            'producto', 'numero_lote', 'cantidad_disponible', 'costo_unitario_lote', 
             'fecha_caducidad'
         ]
         widgets = {

@@ -36,6 +36,9 @@
                             <th>Precio Unitario</th>
                             <th>Stock Actual</th>
                             <th>Stock Mínimo</th>
+                            <th class="text-center">Lote Más Antiguo</th>
+                            <th class="text-center">Proveedor Lote Antiguo</th>
+                            <th class="text-center">Vencimiento Próximo</th>
                             <th class="text-center">Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -51,6 +54,27 @@
                                 <td>${{ producto.precio_unitario|floatformat:2 }}</td>
                                 <td>{{ producto.stock_actual|default:0 }}</td>
                                 <td>{{ producto.stock_minimo }}</td>
+                                <td class="text-center">{{ producto.lote_mas_antiguo|default:"-" }}</td>
+                                <td class="text-center">{{ producto.proveedor_lote_mas_antiguo|default:"-" }}</td>
+                                <td class="text-center">
+                                    {% if producto.vencimiento_proximo %}
+                                        {% with days_to_expire=producto.vencimiento_proximo|days_until %}
+                                            {% if days_to_expire is not None %}
+                                                {% if days_to_expire <= alert_days_red %}
+                                                    <span class="badge bg-danger">{{ producto.vencimiento_proximo|date:"d/m/Y" }}</span>
+                                                {% elif days_to_expire <= alert_days_yellow %}
+                                                    <span class="badge bg-warning text-dark">{{ producto.vencimiento_proximo|date:"d/m/Y" }}</span>
+                                                {% else %}
+                                                    {{ producto.vencimiento_proximo|date:"d/m/Y" }}
+                                                {% endif %}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
                                 <td class="text-center">
                                     {% if producto.stock_actual <= producto.stock_minimo %}
                                         <span class="badge bg-danger">Bajo Stock</span>
@@ -84,7 +108,7 @@
                             {% endwith %}
                         {% empty %}
                             <tr>
-                                <td colspan="7" class="text-center">No hay productos registrados.</td>
+                                <td colspan="10" class="text-center">No hay productos registrados.</td>
                             </tr>
                         {% endfor %}
                     </tbody>

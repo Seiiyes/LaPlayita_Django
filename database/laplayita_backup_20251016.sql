@@ -528,6 +528,7 @@ DROP TABLE IF EXISTS `lote`;
 CREATE TABLE `lote` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `producto_id` int(11) NOT NULL,
+  `reabastecimiento_detalle_id` int(11) DEFAULT NULL,
   `numero_lote` varchar(50) NOT NULL,
   `cantidad_disponible` int(11) unsigned NOT NULL,
   `costo_unitario_lote` decimal(12,2) NOT NULL,
@@ -536,7 +537,9 @@ CREATE TABLE `lote` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_lote_producto_numero` (`producto_id`,`numero_lote`),
   KEY `fk_lote_producto` (`producto_id`),
-  CONSTRAINT `fk_lote_producto` FOREIGN KEY (`producto_id`) REFERENCES `producto` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `fk_lote_reabastecimiento_detalle` (`reabastecimiento_detalle_id`),
+  CONSTRAINT `fk_lote_producto` FOREIGN KEY (`producto_id`) REFERENCES `producto` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_lote_reabastecimiento_detalle` FOREIGN KEY (`reabastecimiento_detalle_id`) REFERENCES `reabastecimiento_detalle` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -548,8 +551,8 @@ LOCK TABLES `lote` WRITE;
 /*!40000 ALTER TABLE `lote` DISABLE KEYS */;
 set autocommit=0;
 INSERT INTO `lote` VALUES
-(1,1,'LCH-A1',98,2500.00,'2025-10-30','2025-09-01 10:00:00'),
-(2,2,'QSO-C3',59,7000.00,'2025-11-15','2025-09-05 14:00:00');
+(1,1,1,'LCH-A1',98,2500.00,'2025-10-30','2025-09-01 10:00:00'),
+(2,2,2,'QSO-C3',59,7000.00,'2025-11-15','2025-09-05 14:00:00');
 /*!40000 ALTER TABLE `lote` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -587,8 +590,8 @@ LOCK TABLES `movimiento_inventario` WRITE;
 /*!40000 ALTER TABLE `movimiento_inventario` DISABLE KEYS */;
 set autocommit=0;
 INSERT INTO `movimiento_inventario` VALUES
-(1,1,1,100,'ENTRADA','2025-10-10 22:48:22','Reabastecimiento inicial Lote A1',NULL,NULL),
-(2,2,2,60,'ENTRADA','2025-10-10 22:48:22','Reabastecimiento inicial Lote C3',NULL,NULL),
+(1,1,1,100,'ENTRADA','2025-10-10 22:48:22','Reabastecimiento inicial Lote A1',NULL,1),
+(2,2,2,60,'ENTRADA','2025-10-10 22:48:22','Reabastecimiento inicial Lote C3',NULL,1),
 (3,1,1,-2,'SALIDA','2025-10-10 22:48:22','Venta ID 1',1,NULL),
 (4,2,2,-1,'SALIDA','2025-10-10 22:48:22','Venta ID 2',2,NULL);
 /*!40000 ALTER TABLE `movimiento_inventario` ENABLE KEYS */;
@@ -730,6 +733,7 @@ CREATE TABLE `proveedor` (
 LOCK TABLES `proveedor` WRITE;
 /*!40000 ALTER TABLE `proveedor` DISABLE KEYS */;
 set autocommit=0;
+INSERT INTO `proveedor` VALUES (1, 'Proveedor de Lacteos S.A.', '123456789', 'contacto@lacteos.com', 'Calle Falsa 123');
 /*!40000 ALTER TABLE `proveedor` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -762,6 +766,7 @@ CREATE TABLE `reabastecimiento` (
 LOCK TABLES `reabastecimiento` WRITE;
 /*!40000 ALTER TABLE `reabastecimiento` DISABLE KEYS */;
 set autocommit=0;
+INSERT INTO `reabastecimiento` VALUES (1, '2025-09-01 09:00:00', 670000.00, 'recibido', 'Efectivo', 'Reabastecimiento inicial', 1);
 /*!40000 ALTER TABLE `reabastecimiento` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -794,6 +799,7 @@ CREATE TABLE `reabastecimiento_detalle` (
 LOCK TABLES `reabastecimiento_detalle` WRITE;
 /*!40000 ALTER TABLE `reabastecimiento_detalle` DISABLE KEYS */;
 set autocommit=0;
+INSERT INTO `reabastecimiento_detalle` VALUES (1, 1, 1, 100, 2500.00), (2, 1, 2, 60, 7000.00);
 /*!40000 ALTER TABLE `reabastecimiento_detalle` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;

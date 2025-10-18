@@ -2,8 +2,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.utils import timezone
-from django.db.models.signals import post_save, post_delete
-from django.dispatch import receiver
+
 
 # --- Custom User Model ---
 class Usuario(AbstractUser):
@@ -144,7 +143,7 @@ class Proveedor(models.Model):
         return self.nombre_empresa
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'proveedor'
 
 # --- Inventory Models ---
@@ -154,7 +153,7 @@ class Producto(models.Model):
     descripcion = models.CharField(max_length=255, blank=True, null=True)
     stock_minimo = models.IntegerField()
     stock_actual = models.PositiveIntegerField(default=0, help_text="Calculado automáticamente a partir de los lotes.")
-    categoria = models.ForeignKey(Categoria, models.DO_NOTHING)
+    categoria = models.ForeignKey(Categoria, on_delete=models.PROTECT, default=1)
 
     def __str__(self):
         return self.nombre
@@ -165,35 +164,30 @@ class Producto(models.Model):
         super().save(*args, **kwargs)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'producto'
 
 class Lote(models.Model):
-    producto = models.ForeignKey(Producto, models.CASCADE)
+    producto = models.ForeignKey(Producto, models.CASCADE, default=1)
+    reabastecimiento_detalle = models.ForeignKey('ReabastecimientoDetalle', on_delete=models.SET_NULL, null=True, blank=True)
     numero_lote = models.CharField(max_length=50)
     cantidad_disponible = models.PositiveIntegerField()
-    costo_unitario = models.DecimalField(max_digits=12, decimal_places=2, db_column='costo_unitario_lote')
+    costo_unitario_lote = models.DecimalField(max_digits=12, decimal_places=2)
     fecha_caducidad = models.DateField()
     fecha_entrada = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return f"Lote {self.numero_lote} ({self.producto.nombre})"
 
+    @property
+    def proveedor(self):
+        return self.reabastecimiento_detalle.reabastecimiento.proveedor
+
     class Meta:
-        managed = False
+        managed = True
         db_table = 'lote'
         unique_together = (('producto', 'numero_lote'),)
 
-# --- Signals to sync stock --- 
-@receiver([post_save, post_delete], sender=Lote)
-def actualizar_stock_producto(sender, instance, **kwargs):
-    """
-    Updates the 'stock_actual' of a Producto whenever a related Lote is saved or deleted.
-    """
-    producto = instance.producto
-    total_stock = Lote.objects.filter(producto=producto).aggregate(total=models.Sum('cantidad_disponible'))['total']
-    producto.stock_actual = total_stock if total_stock is not None else 0
-    producto.save(update_fields=['stock_actual'])
 
 # --- Other Unmanaged Models ---
 class Venta(models.Model):
@@ -224,20 +218,20 @@ class Reabastecimiento(models.Model):
     estado = models.CharField(max_length=20, blank=True, null=True)
     forma_pago = models.CharField(max_length=25, blank=True, null=True)
     observaciones = models.TextField(blank=True, null=True)
-    proveedor = models.ForeignKey(Proveedor, models.DO_NOTHING)
+    proveedor = models.ForeignKey(Proveedor, on_delete=models.PROTECT)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'reabastecimiento'
 
 class ReabastecimientoDetalle(models.Model):
     reabastecimiento = models.ForeignKey(Reabastecimiento, models.CASCADE)
-    producto = models.ForeignKey(Producto, models.DO_NOTHING)
+    producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
     cantidad = models.IntegerField()
     costo_unitario = models.DecimalField(max_digits=12, decimal_places=2)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'reabastecimiento_detalle'
 
 class MovimientoInventario(models.Model):

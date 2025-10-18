@@ -12,7 +12,7 @@ def check_user_role(allowed_roles=[]):
         def _wrapped_view(request, *args, **kwargs):
             if not request.user.is_authenticated:
                 messages.error(request, "Debes iniciar sesión para acceder a esta página.")
-                return redirect('auth_login')
+                return redirect('login')
 
             if not request.user.rol or request.user.rol.nombre not in allowed_roles:
                 messages.error(request, "No tienes los permisos necesarios para ver esta página.")
@@ -46,5 +46,5 @@ def group_required(*required_roles):
     def check_roles(user):
         return user_has_role_id(user, required_roles)
         
-    # Redirige a 'auth:login' si falla el permiso
-    return user_passes_test(check_roles, login_url=reverse_lazy('auth:login'))
+    # Redirige a 'login' si falla el permiso
+    return user_passes_test(check_roles, login_url=reverse_lazy('login'))
