@@ -1,5 +1,6 @@
 # C:\laplayita\la_playita_project\core\models.py (Refactored)
 from django.db import models
+from django.db.models import Sum
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.utils import timezone
 
@@ -158,11 +159,6 @@ class Producto(models.Model):
     def __str__(self):
         return self.nombre
 
-    def save(self, *args, **kwargs):
-        # This logic could be useful if we need to perform actions when the product is saved directly,
-        # but stock calculation is handled by signals from Lote.
-        super().save(*args, **kwargs)
-
     class Meta:
         managed = True
         db_table = 'producto'
@@ -178,6 +174,22 @@ class Lote(models.Model):
 
     def __str__(self):
         return f"Lote {self.numero_lote} ({self.producto.nombre})"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self._actualizar_stock_producto()
+
+    def delete(self, *args, **kwargs):
+        producto = self.producto
+        super().delete(*args, **kwargs)
+        self._actualizar_stock_producto(producto)
+
+    def _actualizar_stock_producto(self, producto=None):
+        if producto is None:
+            producto = self.producto
+        total_stock = Lote.objects.filter(producto=producto).aggregate(total=Sum('cantidad_disponible'))['total']
+        new_stock = total_stock if total_stock is not None else 0
+        Producto.objects.filter(pk=producto.pk).update(stock_actual=new_stock)
 
     @property
     def proveedor(self):
@@ -218,14 +230,14 @@ class Reabastecimiento(models.Model):
     estado = models.CharField(max_length=20, blank=True, null=True)
     forma_pago = models.CharField(max_length=25, blank=True, null=True)
     observaciones = models.TextField(blank=True, null=True)
-    proveedor = models.ForeignKey(Proveedor, on_delete=models.PROTECT)
+    proveedor = models.ForeignKey(Proveedor, on_delete=models.PROTECT, null=True)
 
     class Meta:
         managed = True
         db_table = 'reabastecimiento'
 
 class ReabastecimientoDetalle(models.Model):
-    reabastecimiento = models.ForeignKey(Reabastecimiento, models.CASCADE)
+    reabastecimiento = models.ForeignKey(Reabastecimiento, models.CASCADE, null=True)
     producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
     cantidad = models.IntegerField()
     costo_unitario = models.DecimalField(max_digits=12, decimal_places=2)

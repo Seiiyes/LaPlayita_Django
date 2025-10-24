@@ -6,9 +6,9 @@ register = template.Library()
 @register.filter(name='has_role')
 def has_role(user, role_name):
     """Template filter to check if a user has a specific role."""
-    if user.rol:
-        return user.rol.nombre == role_name
-    return False
+    if not user or not user.is_authenticated:
+        return False
+    return hasattr(user, 'rol') and user.rol and user.rol.nombre == role_name
 
 @register.filter(name='days_until')
 def days_until(value):

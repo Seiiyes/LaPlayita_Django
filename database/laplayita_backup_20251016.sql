@@ -577,8 +577,12 @@ CREATE TABLE `movimiento_inventario` (
   PRIMARY KEY (`id`),
   KEY `producto_id` (`producto_id`),
   KEY `lote_id` (`lote_id`),
+  KEY `venta_id` (`venta_id`),
+  KEY `reabastecimiento_id` (`reabastecimiento_id`),
   CONSTRAINT `fk_movimiento_inventario_lote` FOREIGN KEY (`lote_id`) REFERENCES `lote` (`id`) ON UPDATE CASCADE,
-  CONSTRAINT `fk_movimiento_inventario_producto` FOREIGN KEY (`producto_id`) REFERENCES `producto` (`id`) ON UPDATE CASCADE
+  CONSTRAINT `fk_movimiento_inventario_producto` FOREIGN KEY (`producto_id`) REFERENCES `producto` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_movimiento_inventario_reabastecimiento` FOREIGN KEY (`reabastecimiento_id`) REFERENCES `reabastecimiento` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_movimiento_inventario_venta` FOREIGN KEY (`venta_id`) REFERENCES `venta` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -749,7 +753,7 @@ CREATE TABLE `reabastecimiento` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `fecha` datetime NOT NULL,
   `costo_total` decimal(12,2) NOT NULL,
-  `estado` varchar(20) DEFAULT 'recibido',
+  `estado` varchar(20) NOT NULL DEFAULT 'solicitado' COMMENT 'Posibles valores: solicitado, cancelado, recibido',
   `forma_pago` varchar(25) DEFAULT 'Efectivo',
   `observaciones` text DEFAULT NULL,
   `proveedor_id` int(11) NOT NULL,

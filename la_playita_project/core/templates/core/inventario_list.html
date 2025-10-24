@@ -1,6 +1,8 @@
 {% extends 'core/base.html' %}
 {% load auth_extras %}
 {% load static %}
+{% load humanize %}
+{% load currency_format %}
 
 {% block title %}Inventario de Productos{% endblock %}
 
@@ -18,11 +20,16 @@
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="mb-0">Inventario de Productos</h1>
-        {% if request.user|has_role:'Administrador' or request.user|has_role:'Vendedor' %}
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createProductModal">
-                <i class="bi bi-plus-lg me-2"></i>Crear Producto
-            </button>
-        {% endif %}
+        <div>
+            {% if user|has_role:'Administrador' or user|has_role:'Vendedor' %}
+                <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#createProductModal">
+                    <i class="bi bi-plus-lg me-2"></i>Crear Producto
+                </button>
+            {% endif %}
+            {% if user|has_role:'Administrador' %}
+                <a href="{% url 'reabastecimiento_list' %}" class="btn btn-outline-secondary">Reabastecimientos</a>
+            {% endif %}
+        </div>
     </div>
 
     <div class="card shadow-sm">
@@ -36,8 +43,8 @@
                             <th>Precio Unitario</th>
                             <th>Stock Actual</th>
                             <th>Stock Mínimo</th>
-                            <th class="text-center">Lote Más Antiguo</th>
-                            <th class="text-center">Proveedor Lote Antiguo</th>
+                            <th class="text-center">Lote Más Reciente</th>
+                            <th class="text-center">Proveedor Lote Reciente</th>
                             <th class="text-center">Vencimiento Próximo</th>
                             <th class="text-center">Estado</th>
                             <th class="text-center">Acciones</th>
@@ -51,11 +58,11 @@
                                 {% elif producto.stock_actual <= stock_warning_level %} class="table-warning" {% endif %}>
                                 <td><strong>{{ producto.nombre }}</strong></td>
                                 <td>{{ producto.categoria.nombre }}</td>
-                                <td>${{ producto.precio_unitario|floatformat:2 }}</td>
-                                <td>{{ producto.stock_actual|default:0 }}</td>
-                                <td>{{ producto.stock_minimo }}</td>
-                                <td class="text-center">{{ producto.lote_mas_antiguo|default:"-" }}</td>
-                                <td class="text-center">{{ producto.proveedor_lote_mas_antiguo|default:"-" }}</td>
+                                                                <td>{{ producto.precio_unitario|currency }}</td>
+                                <td>{{ producto.stock_actual|default:0|intcomma }}</td>
+                                <td>{{ producto.stock_minimo|intcomma }}</td>
+                                <td class="text-center">{{ producto.lote_mas_reciente|default:"-" }}</td>
+                                <td class="text-center">{{ producto.proveedor_lote_mas_reciente|default:"-" }}</td>
                                 <td class="text-center">
                                     {% if producto.vencimiento_proximo %}
                                         {% with days_to_expire=producto.vencimiento_proximo|days_until %}
@@ -85,17 +92,17 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-center">
-                                    {% if request.user|has_role:'Administrador' %}
+                                    {% if user|has_role:'Administrador' %}
                                         <a href="{% url 'lote_list' producto.pk %}" class="btn btn-sm btn-info" data-bs-toggle="tooltip" title="Ver Lotes">
                                             <i class="bi bi-box-seam"></i>
                                         </a>
                                     {% endif %}
-                                    {% if request.user|has_role:'Administrador' or request.user|has_role:'Vendedor' %}
+                                    {% if user|has_role:'Administrador' or user|has_role:'Vendedor' %}
                                         <a href="{% url 'producto_update' producto.pk %}" class="btn btn-sm btn-warning" data-bs-toggle="tooltip" title="Editar Producto">
                                             <i class="bi bi-pencil-square"></i>
                                         </a>
                                     {% endif %}
-                                    {% if request.user|has_role:'Administrador' %}
+                                    {% if user|has_role:'Administrador' %}
                                         <form action="{% url 'producto_delete' producto.pk %}" method="post" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este producto?');">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-sm btn-danger" data-bs-toggle="tooltip" title="Eliminar Producto">
