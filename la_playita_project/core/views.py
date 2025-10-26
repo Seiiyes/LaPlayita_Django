@@ -10,15 +10,48 @@ from django.db import models
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
+from django.core.mail import send_mail
 
-from .models import Producto, Lote, Categoria
+from .models import Producto, Lote, Categoria, MovimientoInventario
 from .forms import VendedorRegistrationForm, ProductoForm, LoteForm, CategoriaForm
 from .models import Reabastecimiento, ReabastecimientoDetalle, Proveedor
 from .forms import ReabastecimientoForm, ReabastecimientoDetalleFormSet
-from django.db import transaction
+from django.db import transaction, connection
 from django.contrib.auth.views import LoginView
 from .decorators import check_user_role
 
+
+def send_supply_request_email(reabastecimiento):
+    proveedor = reabastecimiento.proveedor
+    if proveedor.correo:
+        subject = f'Solicitud de Reabastecimiento #{reabastecimiento.id}'
+        
+        message = f"""
+        Hola {proveedor.nombre_empresa},
+
+        Se ha generado una nueva solicitud de reabastecimiento.
+
+        Detalles:
+        ID de Reabastecimiento: {reabastecimiento.id}
+        Fecha de Solicitud: {reabastecimiento.fecha.strftime('%d/%m/%Y %H:%M')}
+        Observaciones: {reabastecimiento.observaciones or 'N/A'}
+
+        Productos solicitados:
+        """
+        
+        for detalle in reabastecimiento.reabastecimientodetalle_set.all():
+            message += f"- {detalle.producto.nombre}: {detalle.cantidad} unidades\n"
+            
+        message += "\nGracias,\nEl equipo de La Playita."
+
+        # TODO: Configure EMAIL_HOST_USER in settings.py
+        send_mail(
+            subject,
+            message,
+            'no-reply@laplayita.com', 
+            [proveedor.correo],
+            fail_silently=False,
+        )
 
 class CustomLoginView(LoginView):
     template_name = 'registration/login.html'
@@ -152,25 +185,47 @@ def producto_create(request):
                 messages.error(request, f"{form.fields[field].label}: {error}")
     return redirect('inventario_list')
 
+@login_required
+def producto_detail_json(request, pk):
+    """
+    Devuelve los detalles de un producto en formato JSON para la edición en modal.
+    """
+    producto = get_object_or_404(Producto, pk=pk)
+    data = {
+        'id': producto.pk,
+        'nombre': producto.nombre,
+        'precio_unitario': str(producto.precio_unitario),
+        'descripcion': producto.descripcion,
+        'stock_minimo': producto.stock_minimo,
+        'categoria_id': producto.categoria_id,
+    }
+    return JsonResponse(data)
+
 @never_cache
 @login_required
+@require_POST # This view now only handles POST requests
 @check_user_role(allowed_roles=['Administrador', 'Vendedor'])
 def producto_update(request, pk):
     producto = get_object_or_404(Producto, pk=pk)
-    if request.method == 'POST':
-        form = ProductoForm(request.POST, instance=producto)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Producto actualizado exitosamente.')
-            return redirect('inventario_list')
+    form = ProductoForm(request.POST, instance=producto)
+    if form.is_valid():
+        producto = form.save()
+        return JsonResponse({
+            'id': producto.pk,
+            'nombre': producto.nombre,
+            'categoria_nombre': producto.categoria.nombre,
+            'precio_unitario': str(producto.precio_unitario),
+            'stock_actual': producto.stock_actual,
+            'stock_minimo': producto.stock_minimo,
+        })
     else:
-        form = ProductoForm(instance=producto)
-    return render(request, 'core/producto_form.html', {'form': form, 'producto': producto})
+        return JsonResponse({'errors': form.errors}, status=400)
 
 @never_cache
 @login_required
 @require_POST
-@check_user_role(allowed_roles=['Administrador']) # Solo Admin puede eliminar
+@check_user_role(allowed_roles=['Administrador'])
+
 def producto_delete(request, pk):
     producto = get_object_or_404(Producto, pk=pk)
     producto.delete()
@@ -198,7 +253,8 @@ def categoria_create(request):
 
 @never_cache
 @login_required
-@check_user_role(allowed_roles=['Administrador']) # Solo Admin
+@check_user_role(allowed_roles=['Administrador'])
+
 def lote_list(request, producto_pk):
     producto = get_object_or_404(Producto, pk=producto_pk)
     lotes = Lote.objects.filter(producto=producto).order_by('-fecha_entrada')
@@ -224,18 +280,18 @@ def reabastecimiento_list(request):
     """
     Lista simple de reabastecimientos.
     """
-    # Obtener reabastecimientos con sus detalles, productos y verificar ventas asociadas
-    reabs = (Reabastecimiento.objects
-             .select_related('proveedor')
-             .prefetch_related(
-                 'reabastecimientodetalle_set__producto',
-                 'reabastecimientodetalle_set__producto__categoria',
-                 'reabastecimientodetalle_set__lote_set',
-                 'reabastecimientodetalle_set__lote_set__ventadetalle_set'
-             )
-             .order_by('-fecha'))
+    reabs = (
+        Reabastecimiento.objects
+        .exclude(estado=Reabastecimiento.ESTADO_CANCELADO)
+        .select_related('proveedor')
+        .prefetch_related(
+            'reabastecimientodetalle_set__producto',
+            'reabastecimientodetalle_set__producto__categoria',
+            'reabastecimientodetalle_set__lote_set',
+            'reabastecimientodetalle_set__lote_set__ventadetalle_set'
+        )
+        .order_by('-fecha'))
     
-    # Agregar atributo tiene_ventas a cada reabastecimiento
     for reab in reabs:
         reab.tiene_ventas = any(
             lote.ventadetalle_set.exists()
@@ -243,25 +299,23 @@ def reabastecimiento_list(request):
             for lote in detalle.lote_set.all()
         )
 
-    # Preparar el formulario y formset para el modal sólo si el usuario es administrador
     form = None
     formset = None
     if request.user.is_authenticated and getattr(request.user, 'rol', None) and request.user.rol.nombre == 'Administrador':
         form = ReabastecimientoForm()
         formset = ReabastecimientoDetalleFormSet(queryset=ReabastecimientoDetalle.objects.none())
 
-    # Datos de productos para ayudar al auto-relleno de costo unitario en el modal
     productos_data = []
     try:
-        from .models import Producto
         productos_qs = Producto.objects.all().only('id', 'precio_unitario')
         for p in productos_qs:
             productos_data.append({'id': p.id, 'precio_unitario': float(p.precio_unitario) if p.precio_unitario is not None else 0.0})
     except Exception:
         productos_data = []
 
-    # Obtener categorías para el modal de nuevo producto
     categorias = Categoria.objects.all()
+    productos = Producto.objects.all()
+    all_products_data = list(Producto.objects.values('id', 'nombre'))
 
     context = {
         'reabastecimientos': reabs,
@@ -269,7 +323,9 @@ def reabastecimiento_list(request):
         'formset': formset,
         'products_data': productos_data,
         'products_json': json.dumps(productos_data),
+        'all_products_json': json.dumps(all_products_data),
         'categorias': categorias,
+        'productos': productos,
     }
     return render(request, 'core/reabastecimiento_list.html', context)
 
@@ -279,8 +335,10 @@ def reabastecimiento_list(request):
 @check_user_role(allowed_roles=['Administrador'])
 def reabastecimiento_create(request):
     """
-    Crear un reabastecimiento con múltiples detalles. Por cada detalle se creará un lote asociado.
-    Todo el proceso es atómico para no dejar la DB en estado inconsistente.
+    Crear un reabastecimiento con múltiples detalles.
+    No crea lotes ni actualiza stock, solo crea la solicitud.
+    Envía un correo al proveedor si el estado es 'solicitado'.
+    Responde con JSON para solicitudes AJAX.
     """
     if request.method == 'POST':
         form = ReabastecimientoForm(request.POST)
@@ -289,65 +347,110 @@ def reabastecimiento_create(request):
             try:
                 with transaction.atomic():
                     reab = form.save(commit=False)
-                    # Si no se proporciona fecha, use ahora
-                    if not reab.fecha:
-                        from django.utils import timezone
-                        reab.fecha = timezone.now()
-                    # calcular costo_total provisional
-                    reab.costo_total = 0
-                    reab.save()
-
+                    
                     total = 0
-                    detalles_to_create = []
+                    details_for_creation = []
                     for detalle_form in formset.cleaned_data:
                         if detalle_form and not detalle_form.get('DELETE', False):
-                            producto = detalle_form['producto']
                             cantidad = detalle_form['cantidad']
                             costo_unitario = detalle_form['costo_unitario']
-                            fecha_caducidad = detalle_form.get('fecha_caducidad')
-
-                            detalle = ReabastecimientoDetalle.objects.create(
-                                reabastecimiento=reab,
-                                producto=producto,
-                                cantidad=cantidad,
-                                costo_unitario=costo_unitario
-                            )
-
-                            # Crear lote asociado
-                            numero_lote = f"R{reab.pk}-P{producto.pk}-{detalle.pk}"
-                            Lote.objects.create(
-                                producto=producto,
-                                reabastecimiento_detalle=detalle,
-                                numero_lote=numero_lote,
-                                cantidad_disponible=cantidad,
-                                costo_unitario_lote=costo_unitario,
-                                fecha_caducidad=fecha_caducidad
-                            )
-
                             total += cantidad * float(costo_unitario)
+                            details_for_creation.append(detalle_form)
 
-                    # Actualizar costo total
+                    if not details_for_creation:
+                        return JsonResponse({'error': 'Debe agregar al menos un detalle de producto.'}, status=400)
+
                     reab.costo_total = total
                     reab.save()
 
-                    messages.success(request, 'Reabastecimiento creado correctamente.')
-                    return redirect('reabastecimiento_list')
-            except Exception as e:
-                messages.error(request, f'Ocurrió un error al crear el reabastecimiento: {e}')
-    else:
-        form = ReabastecimientoForm()
-        formset = ReabastecimientoDetalleFormSet(queryset=ReabastecimientoDetalle.objects.none())
+                    detalles_data = []
+                    for detalle_form in details_for_creation:
+                        producto = detalle_form['producto']
+                        detalle = ReabastecimientoDetalle.objects.create(
+                            reabastecimiento=reab,
+                            producto=producto,
+                            cantidad=detalle_form['cantidad'],
+                            costo_unitario=detalle_form['costo_unitario'],
+                            fecha_caducidad=detalle_form['fecha_caducidad']
+                        )
+                        detalles_data.append({
+                            'producto_nombre': producto.nombre,
+                            'categoria_nombre': producto.categoria.nombre,
+                            'cantidad': detalle.cantidad,
+                            'costo_unitario': float(detalle.costo_unitario),
+                            'subtotal': float(detalle.cantidad * detalle.costo_unitario),
+                            'estado_lote': 'No recibido'
+                        })
 
-    context = {
-        'form': form,
-        'formset': formset,
-    }
-    return render(request, 'core/reabastecimiento_form.html', context)
+                    if reab.estado == Reabastecimiento.ESTADO_SOLICITADO:
+                        try:
+                            send_supply_request_email(reab)
+                        except Exception as email_error:
+                            print(f"Error sending email: {email_error}")
+
+                    return JsonResponse({
+                        'id': reab.id,
+                        'fecha': reab.fecha.strftime('%d/%m/%Y %H:%M'),
+                        'proveedor': reab.proveedor.nombre_empresa,
+                        'costo_total': float(reab.costo_total),
+                        'forma_pago': reab.get_forma_pago_display(),
+                        'estado': reab.get_estado_display(),
+                        'observaciones': reab.observaciones,
+                        'detalles': detalles_data
+                    })
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=400)
+        else: 
+            errors = json.loads(form.errors.as_json())
+            formset_errors = [f.errors for f in formset.forms if f.errors]
+            return JsonResponse({'errors': errors, 'formset_errors': formset_errors}, status=400)
+
+    return JsonResponse({'error': 'Only POST method is allowed'}, status=405)
+
+@never_cache
+@login_required
+@check_user_role(allowed_roles=['Administrador'])
+
+def reabastecimiento_recibir(request, pk):
+    """
+    Marcar un reabastecimiento como 'recibido' y crear los lotes correspondientes,
+    actualizando así el stock de los productos.
+    """
+    try:
+        with transaction.atomic():
+            reab = get_object_or_404(Reabastecimiento, pk=pk)
+            
+            if reab.estado == Reabastecimiento.ESTADO_RECIBIDO:
+                return JsonResponse({'error': 'Este reabastecimiento ya ha sido recibido.'}, status=400)
+
+            reab.estado = Reabastecimiento.ESTADO_RECIBIDO
+            reab.save()
+
+            for detalle in reab.reabastecimientodetalle_set.all():
+                if not detalle.fecha_caducidad:
+                    return JsonResponse({'error': f'El producto {detalle.producto.nombre} no tiene fecha de caducidad.'}, status=400)
+
+                numero_lote = f"R{reab.pk}-P{detalle.producto.pk}-{detalle.pk}"
+                Lote.objects.create(
+                    producto=detalle.producto,
+                    reabastecimiento_detalle=detalle,
+                    numero_lote=numero_lote,
+                    cantidad_disponible=detalle.cantidad,
+                    costo_unitario_lote=detalle.costo_unitario,
+                    fecha_caducidad=detalle.fecha_caducidad
+                )
+            
+            return JsonResponse({'message': 'Reabastecimiento marcado como recibido y stock actualizado.', 'estado': reab.get_estado_display()})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
 
 @never_cache
 @login_required
 @require_POST
-@check_user_role(allowed_roles=['Administrador']) # Solo Admin
+@check_user_role(allowed_roles=['Administrador'])
+
 def lote_create(request, producto_pk):
     producto = get_object_or_404(Producto, pk=producto_pk)
     form = LoteForm(request.POST)
@@ -364,7 +467,8 @@ def lote_create(request, producto_pk):
 
 @never_cache
 @login_required
-@check_user_role(allowed_roles=['Administrador']) # Solo Admin
+@check_user_role(allowed_roles=['Administrador'])
+
 def lote_update(request, pk):
     lote = get_object_or_404(Lote, pk=pk)
     if request.method == 'POST':
@@ -380,7 +484,8 @@ def lote_update(request, pk):
 @never_cache
 @login_required
 @require_POST
-@check_user_role(allowed_roles=['Administrador']) # Solo Admin
+@check_user_role(allowed_roles=['Administrador'])
+
 def lote_delete(request, pk):
     lote = get_object_or_404(Lote, pk=pk)
     producto_pk = lote.producto.pk
@@ -399,7 +504,6 @@ def reabastecimiento_editar(request, pk):
             'reabastecimientodetalle_set__lote_set'
         ).get(pk=pk)
         
-        # Verificar si hay productos vendidos
         if any(lote.ventadetalle_set.exists()
                for detalle in reab.reabastecimientodetalle_set.all()
                for lote in detalle.lote_set.all()):
@@ -407,7 +511,6 @@ def reabastecimiento_editar(request, pk):
                 'error': 'No se puede editar este reabastecimiento porque tiene productos vendidos'
             }, status=400)
         
-        # Por ahora solo retornamos los datos básicos
         data = {
             'id': reab.id,
             'proveedor_id': reab.proveedor_id,
@@ -417,9 +520,10 @@ def reabastecimiento_editar(request, pk):
             'detalles': [{
                 'id': detalle.id,
                 'producto_id': detalle.producto_id,
+                'producto_nombre': detalle.producto.nombre,  # <-- Añadido para el frontend
                 'cantidad': detalle.cantidad,
                 'costo_unitario': str(detalle.costo_unitario),
-                'fecha_caducidad': detalle.lote_set.first().fecha_caducidad.isoformat() if detalle.lote_set.first() else None
+                'fecha_caducidad': detalle.fecha_caducidad.isoformat() if detalle.fecha_caducidad else None
             } for detalle in reab.reabastecimientodetalle_set.all()]
         }
         return JsonResponse(data)
@@ -428,29 +532,103 @@ def reabastecimiento_editar(request, pk):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
+
+@never_cache
+@login_required
+@require_POST
+@check_user_role(allowed_roles=['Administrador'])
+def reabastecimiento_update(request, pk):
+    """
+    Actualizar un reabastecimiento con múltiples detalles.
+    Responde con JSON para solicitudes AJAX.
+    """
+    try:
+        with transaction.atomic():
+            reab = get_object_or_404(Reabastecimiento, pk=pk)
+            
+            if any(lote.ventadetalle_set.exists() for detalle in reab.reabastecimientodetalle_set.all() for lote in detalle.lote_set.all()):
+                return JsonResponse({'error': 'No se puede editar un reabastecimiento con productos vendidos.'}, status=400)
+
+            form = ReabastecimientoForm(request.POST, instance=reab)
+            formset = ReabastecimientoDetalleFormSet(request.POST, instance=reab)
+
+            if form.is_valid() and formset.is_valid():
+                reab_instance = form.save()
+
+                # Handle deletions
+                for form_detalle in formset.deleted_forms:
+                    if form_detalle.instance.pk:
+                        form_detalle.instance.delete()
+
+                # Handle new and updated
+                detalles_actualizados = []
+                total = 0
+                for form_detalle in formset.forms:
+                    if form_detalle.cleaned_data and not form_detalle.cleaned_data.get('DELETE', False):
+                        detalle = form_detalle.save(commit=False)
+                        detalle.reabastecimiento = reab_instance
+                        detalle.save()
+                        
+                        cantidad = form_detalle.cleaned_data['cantidad']
+                        costo_unitario = form_detalle.cleaned_data['costo_unitario']
+                        total += cantidad * float(costo_unitario)
+                        detalles_actualizados.append(detalle)
+
+                if not detalles_actualizados:
+                    return JsonResponse({'error': 'Debe agregar al menos un detalle de producto.'}, status=400)
+
+                reab_instance.costo_total = total
+                reab_instance.save()
+
+                if reab_instance.estado == Reabastecimiento.ESTADO_SOLICITADO:
+                    try:
+                        send_supply_request_email(reab_instance)
+                    except Exception as email_error:
+                        print(f"Error sending email on update: {email_error}")
+
+                return JsonResponse({
+                    'id': reab_instance.id,
+                    'fecha': reab_instance.fecha.strftime('%d/%m/%Y %H:%M'),
+                    'proveedor': reab_instance.proveedor.nombre_empresa,
+                    'costo_total': float(reab_instance.costo_total),
+                    'forma_pago': reab_instance.get_forma_pago_display(),
+                    'estado': reab_instance.get_estado_display(),
+                    'observaciones': reab_instance.observaciones,
+                })
+            else:
+                errors = json.loads(form.errors.as_json())
+                formset_errors = [f.errors for f in formset.forms if f.errors]
+                return JsonResponse({'errors': errors, 'formset_errors': formset_errors}, status=400)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
 @never_cache
 @login_required
 @require_POST
 @check_user_role(allowed_roles=['Administrador'])
 def reabastecimiento_eliminar(request, pk):
-    """Vista para eliminar un reabastecimiento."""
+    """Vista para eliminar un reabastecimiento (borrado físico)."""
     try:
         with transaction.atomic():
             reab = get_object_or_404(Reabastecimiento, pk=pk)
             
-            # Verificar si hay ventas asociadas a cualquier lote del reabastecimiento
-            tiene_ventas = any(
-                lote.ventadetalle_set.exists()
-                for detalle in reab.reabastecimientodetalle_set.all()
-                for lote in detalle.lote_set.all()
-            )
-            
-            if tiene_ventas:
+            # Check if any associated lots have been sold
+            if Lote.objects.filter(reabastecimiento_detalle__reabastecimiento=reab, ventadetalle__isnull=False).exists():
                 return JsonResponse({
                     'error': 'No se puede eliminar este reabastecimiento porque tiene productos vendidos'
                 }, status=400)
             
-            reab.delete()
+            # Delete associated Lotes first, which will also update stock
+            Lote.objects.filter(reabastecimiento_detalle__reabastecimiento=reab).delete()
+
+            with connection.cursor() as cursor:
+                # Delete from movimiento_inventario to prevent ON DELETE SET NULL issue
+                cursor.execute("DELETE FROM movimiento_inventario WHERE reabastecimiento_id = %s", [pk])
+                
+                # Now, delete the reabastecimiento. The DB will cascade to reabastecimiento_detalle.
+                cursor.execute("DELETE FROM reabastecimiento WHERE id = %s", [pk])
+            
             return JsonResponse({'message': 'Reabastecimiento eliminado correctamente'})
             
     except Reabastecimiento.DoesNotExist:
@@ -487,9 +665,9 @@ def proveedor_create_ajax(request):
         data = json.loads(request.body)
         proveedor = Proveedor.objects.create(
             nombre_empresa=data['nombre_empresa'],
-            rut=data['rut'],
             telefono=data.get('telefono', ''),
-            correo=data.get('correo', '')
+            correo=data.get('correo', ''),
+            direccion=data.get('direccion', '')
         )
         return JsonResponse({
             'id': proveedor.id,

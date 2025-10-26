@@ -21,6 +21,7 @@ urlpatterns = [
     path('inventario/alertas/', views.alertas_stock_list, name='alertas_stock'),
     path('inventario/crear/', views.producto_create, name='producto_create'),
     path('inventario/ajax/crear/', views.producto_create_ajax, name='producto_create_ajax'),
+    path('inventario/producto/<int:pk>/json/', views.producto_detail_json, name='producto_detail_json'),
     path('inventario/categoria/add/', views.categoria_create, name='categoria_create'),
     path('inventario/editar/<int:pk>/', views.producto_update, name='producto_update'),
     path('inventario/eliminar/<int:pk>/', views.producto_delete, name='producto_delete'),
@@ -41,5 +42,7 @@ urlpatterns = [
     path('reabastecimientos/', views.reabastecimiento_list, name='reabastecimiento_list'),
     path('reabastecimientos/crear/', views.reabastecimiento_create, name='reabastecimiento_create'),
     path('reabastecimientos/<int:pk>/editar/', views.reabastecimiento_editar, name='reabastecimiento_editar'),
+    path('reabastecimientos/<int:pk>/actualizar/', views.reabastecimiento_update, name='reabastecimiento_update'),
     path('reabastecimientos/<int:pk>/eliminar/', views.reabastecimiento_eliminar, name='reabastecimiento_eliminar'),
+    path('reabastecimientos/<int:pk>/recibir/', views.reabastecimiento_recibir, name='reabastecimiento_recibir'),
 ]

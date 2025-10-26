@@ -26,9 +26,6 @@
                     <i class="bi bi-plus-lg me-2"></i>Crear Producto
                 </button>
             {% endif %}
-            {% if user|has_role:'Administrador' %}
-                <a href="{% url 'reabastecimiento_list' %}" class="btn btn-outline-secondary">Reabastecimientos</a>
-            {% endif %}
         </div>
     </div>
 
@@ -53,14 +50,14 @@
                     <tbody>
                         {% for producto in productos %}
                             {% with stock_warning_level=producto.stock_minimo|add:5 %}
-                            <tr 
+                            <tr id="product-row-{{ producto.pk }}" 
                                 {% if producto.stock_actual <= producto.stock_minimo %} class="table-danger" 
                                 {% elif producto.stock_actual <= stock_warning_level %} class="table-warning" {% endif %}>
-                                <td><strong>{{ producto.nombre }}</strong></td>
-                                <td>{{ producto.categoria.nombre }}</td>
-                                                                <td>{{ producto.precio_unitario|currency }}</td>
-                                <td>{{ producto.stock_actual|default:0|intcomma }}</td>
-                                <td>{{ producto.stock_minimo|intcomma }}</td>
+                                <td class="product-nombre"><strong>{{ producto.nombre }}</strong></td>
+                                <td class="product-categoria">{{ producto.categoria.nombre }}</td>
+                                <td class="product-precio">{{ producto.precio_unitario|currency }}</td>
+                                <td class="product-stock-actual">{{ producto.stock_actual|default:0|intcomma }}</td>
+                                <td class="product-stock-minimo">{{ producto.stock_minimo|intcomma }}</td>
                                 <td class="text-center">{{ producto.lote_mas_reciente|default:"-" }}</td>
                                 <td class="text-center">{{ producto.proveedor_lote_mas_reciente|default:"-" }}</td>
                                 <td class="text-center">
@@ -82,7 +79,7 @@
                                         -
                                     {% endif %}
                                 </td>
-                                <td class="text-center">
+                                <td class="text-center product-estado">
                                     {% if producto.stock_actual <= producto.stock_minimo %}
                                         <span class="badge bg-danger">Bajo Stock</span>
                                     {% elif producto.stock_actual <= stock_warning_level %}
@@ -98,9 +95,9 @@
                                         </a>
                                     {% endif %}
                                     {% if user|has_role:'Administrador' or user|has_role:'Vendedor' %}
-                                        <a href="{% url 'producto_update' producto.pk %}" class="btn btn-sm btn-warning" data-bs-toggle="tooltip" title="Editar Producto">
+                                        <button type="button" class="btn btn-sm btn-warning edit-product-btn" data-product-id="{{ producto.pk }}" data-bs-toggle="tooltip" title="Editar Producto">
                                             <i class="bi bi-pencil-square"></i>
-                                        </a>
+                                        </button>
                                     {% endif %}
                                     {% if user|has_role:'Administrador' %}
                                         <form action="{% url 'producto_delete' producto.pk %}" method="post" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este producto?');">
@@ -135,11 +132,34 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    {% include 'core/producto_form_fields.html' %}
+                    {% include 'core/producto_form_fields.html' with form=form %}
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Producto -->
+<div class="modal fade" id="editProductModal" tabindex="-1" aria-labelledby="editProductModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="editProductForm" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editProductModalLabel">Editar Producto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editProductId">
+                    {% csrf_token %}
+                    {% include 'core/producto_form_fields.html' with form=form %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
                 </div>
             </form>
         </div>
@@ -174,10 +194,77 @@
 
 {% block extra_js %}
 <script>
+document.addEventListener('DOMContentLoaded', function () {
     // Inicializar todos los tooltips de Bootstrap
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
       return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
+    });
+
+    const editProductModal = new bootstrap.Modal(document.getElementById('editProductModal'));
+    const editForm = document.getElementById('editProductForm');
+
+    document.querySelectorAll('.edit-product-btn').forEach(button => {
+        button.addEventListener('click', async function() {
+            const productId = this.dataset.productId;
+            
+            // Fetch product data
+            const response = await fetch(`/inventario/producto/${productId}/json/`);
+            if (!response.ok) {
+                alert('Error al cargar los datos del producto.');
+                return;
+            }
+            const data = await response.json();
+
+            // Populate form
+            editForm.action = `/inventario/editar/${productId}/`;
+            editForm.querySelector('#id_nombre').value = data.nombre;
+            editForm.querySelector('#id_precio_unitario').value = parseInt(data.precio_unitario, 10);
+            editForm.querySelector('#id_descripcion').value = data.descripcion;
+            editForm.querySelector('#id_stock_minimo').value = data.stock_minimo;
+            editForm.querySelector('#id_categoria').value = data.categoria_id;
+
+            // Show modal
+            editProductModal.show();
+        });
+    });
+
+    editForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = new FormData(editForm);
+        const response = await fetch(editForm.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        });
+
+        if (response.ok) {
+            const updatedData = await response.json();
+            
+            // Update table row
+            const row = document.getElementById(`product-row-${updatedData.id}`);
+            row.querySelector('.product-nombre').innerHTML = `<strong>${updatedData.nombre}</strong>`;
+            row.querySelector('.product-categoria').textContent = updatedData.categoria_nombre;
+            row.querySelector('.product-precio').textContent = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(updatedData.precio_unitario);
+            row.querySelector('.product-stock-actual').textContent = new Intl.NumberFormat('es-CL').format(updatedData.stock_actual);
+            row.querySelector('.product-stock-minimo').textContent = new Intl.NumberFormat('es-CL').format(updatedData.stock_minimo);
+
+            editProductModal.hide();
+            // Optionally, show a success message
+            const alertContainer = document.querySelector('.container.mt-4');
+            const alert = `<div class="alert alert-success alert-dismissible fade show" role="alert">
+                Producto actualizado exitosamente.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>`;
+            alertContainer.insertAdjacentHTML('afterbegin', alert);
+
+        } else {
+            const errorData = await response.json();
+            alert('Error al actualizar el producto: ' + JSON.stringify(errorData.errors));
+        }
+    });
+});
 </script>
 {% endblock %}

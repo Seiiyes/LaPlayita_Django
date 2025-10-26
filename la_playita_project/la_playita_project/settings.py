@@ -135,6 +135,11 @@ STATIC_URL = 'static/'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = '/'
 
+# Session Duration Settings
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Expire session when browser is closed
+SESSION_COOKIE_AGE = 1800                 # Expire session after 30 minutes of inactivity (30 * 60)
+SESSION_SAVE_EVERY_REQUEST = True       # Reset inactivity timer on each request
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

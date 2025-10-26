@@ -10,28 +10,29 @@
 {% block content %}
 <div class="container-fluid h-100 p-0">
     <div class="row g-0 h-100">
-        <div class="col-md-7 d-flex flex-column p-3">
-            <div class="bg-white border rounded-3 shadow-sm flex-grow-1 p-3 overflow-hidden">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="col-md-7 d-flex flex-column p-3" style="max-height: 100%;">
+            <div class="bg-white border rounded-3 shadow-sm d-flex flex-column flex-grow-1 p-3">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-shrink-0">
                     <h3 class="text-primary m-0">Historial de reabastecimientos</h3>
                 </div>
-                <div class="table-responsive">
+                <div class="table-responsive flex-grow-1" style="overflow-y: auto;">
                     <table class="table table-hover table-striped align-middle mb-0">
                         <thead class="table-light">
                             <tr>
                                 <th style="width: 15%">Fecha</th>
-                                <th style="width: 22%">Proveedor</th>
+                                <th style="width: 20%">Proveedor</th>
                                 <th style="width: 15%">Costo Total</th>
-                                <th style="width: 13%">Forma Pago</th>
-                                <th style="width: 20%">Observaciones</th>
+                                <th style="width: 15%">Forma Pago</th>
+                                <th style="width: 10%">Estado</th>
+                                <th style="width: 15%">Observaciones</th>
                                 {% if user|has_role:'Administrador' %}
-                                <th style="width: 15%" class="text-end">Acciones</th>
+                                <th style="width: 10%" class="text-end">Acciones</th>
                                 {% endif %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for r in reabastecimientos %}
-                            <tr class="align-middle">
+                            <tr class="align-middle" id="reabastecimiento-{{ r.id }}">
                                 <td>
                                     <button class="btn btn-link text-decoration-none p-0 text-dark fw-bold" type="button" 
                                             data-bs-toggle="collapse" data-bs-target="#detalleReabastecimiento{{ r.id }}" 
@@ -42,11 +43,17 @@
                                 </td>
                                 <td>{{ r.proveedor.nombre_empresa }}</td>
                                 <td>{{ r.costo_total|currency }}</td>
-                                <td>{{ r.forma_pago }}</td>
+                                <td>{{ r.get_forma_pago_display }}</td>
+                                <td><span class="badge bg-info text-dark">{{ r.get_estado_display }}</span></td>
                                 <td>{{ r.observaciones|default:'-' }}</td>
                                 {% if user|has_role:'Administrador' %}
                                 <td class="text-end">
                                     <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-success"
+                                                onclick="recibirReabastecimiento('{{ r.id }}')"
+                                                {% if r.estado == 'recibido' %}disabled{% endif %}>
+                                            <i class="fas fa-check-circle"></i>
+                                        </button>
                                         <button type="button" class="btn btn-sm btn-outline-primary" 
                                                 onclick="editarReabastecimiento('{{ r.id }}')" 
                                                 {% if r.tiene_ventas %}disabled title="No se puede editar porque hay ventas asociadas"{% endif %}>
@@ -62,7 +69,7 @@
                                 {% endif %}
                             </tr>
                             <tr class="collapse" id="detalleReabastecimiento{{ r.id }}">
-                                <td colspan="5" class="p-0">
+                                <td colspan="7" class="p-0">
                                     <div class="bg-light border-start border-5 border-primary p-3">
                                         <h6 class="text-primary mb-3">Detalles del Reabastecimiento</h6>
                                         <div class="table-responsive">
@@ -96,7 +103,7 @@
                                                                 <span class="badge bg-success">Completo</span>
                                                                 {% endif %}
                                                             {% else %}
-                                                            <span class="badge bg-secondary">Sin lote</span>
+                                                            <span class="badge bg-secondary">No recibido</span>
                                                             {% endif %}
                                                         </td>
                                                     </tr>
@@ -105,7 +112,7 @@
                                                 </tbody>
                                                 <tfoot class="table-light">
                                                     <tr>
-                                                        <td colspan="4" class="text-end fw-bold">Total:</td>
+                                                        <td colspan="5" class="text-end fw-bold">Total:</td>
                                                         <td class="text-end fw-bold">{{ r.costo_total|currency }}</td>
                                                         <td></td>
                                                     </tr>
@@ -117,7 +124,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center">No hay reabastecimientos.</td>
+                                <td colspan="7" class="text-center">No hay reabastecimientos.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -144,13 +151,13 @@
                                                     </button>
                                                 </div>
                                             </div>
-                                            <div class="col-6">
-                                                <label class="form-label fw-bold">{{ form.fecha.label }}</label>
-                                                {{ form.fecha }}
-                                            </div>
-                                            <div class="col-6">
+                                            <div class="col-md-6">
                                                 <label class="form-label fw-bold">{{ form.forma_pago.label }}</label>
                                                 {{ form.forma_pago }}
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-bold">{{ form.estado.label }}</label>
+                                                {{ form.estado }}
                                             </div>
                                             <div class="col-12">
                                                 <label class="form-label fw-bold">{{ form.observaciones.label }}</label>
@@ -193,7 +200,6 @@
                                             </tbody>
                                         </table>
                                     </div>
-                                    <!-- Empty form template to clone -->
                                     <table style="display:none;">
                                         <tbody id="empty-form-template">
                                             <tr>
@@ -222,7 +228,7 @@
                                                     <i class="fas fa-box"></i> Nuevo Producto
                                                 </button>
                                             </div>
-                                            <button type="submit" class="btn btn-success">
+                                            <button type="submit" class="btn btn-success" id="guardarReabastecimientoBtn">
                                                 <i class="fas fa-save"></i> Guardar reabastecimiento
                                             </button>
                                         </div>
@@ -235,7 +241,6 @@
 </div>
 
 <style>
-    /* Reset de contenedores principales */
     html, body {
         height: 100%;
         overflow: hidden;
@@ -243,20 +248,18 @@
 
     main.container {
         max-width: 100% !important;
-        height: calc(100vh - 72px) !important; /* Ajustar según el alto del navbar + margins */
+        height: calc(100vh - 72px) !important; 
         padding: 0 !important;
         margin: 0 !important;
     }
 
-    /* Contenedor principal */
     .container-fluid {
         height: 100%;
         overflow: hidden;
     }
 
-    /* Tablas y contenedores */
     .table-responsive {
-        height: calc(100% - 50px); /* Restar el alto del header */
+        height: calc(100% - 50px); 
         overflow: auto;
     }
 
@@ -266,11 +269,9 @@
 
     .table td, .table th {
         padding: 0.75rem;
-        white-space: nowrap;
         vertical-align: middle;
     }
 
-    /* Estilos para el desplegable de detalles */
     .collapse {
         transition: all 0.3s ease;
     }
@@ -287,28 +288,23 @@
         background-color: rgba(0,0,0,.05);
     }
 
-    /* Estilos para las insignias de estado */
     .badge {
         font-size: 0.75rem;
         padding: 0.35em 0.65em;
     }
 
-    /* Bordes y sombras suaves */
     .border-5 {
         border-width: 5px !important;
     }
 
-    /* Ajustes para la tabla de detalles */
     .table-sm td, .table-sm th {
         padding: 0.5rem;
     }
 
-    /* Ajustes para el contenedor de detalles */
     .bg-light {
         background-color: #f8f9fa !important;
     }
 
-    /* Formularios y controles */
     .form-control, .form-select {
         padding: 0.5rem;
         height: 38px;
@@ -327,14 +323,12 @@
         padding: 0.4rem;
     }
 
-    /* Contenedores flexibles */
     .flex-grow-1 {
         min-height: 0;
         display: flex;
         flex-direction: column;
     }
 
-    /* Formulario de detalles */
     #reabastecimientoForm {
         height: 100%;
         display: flex;
@@ -356,7 +350,6 @@
         overflow: auto;
     }
 
-    /* Estilos visuales */
     .rounded-3 {
         border-radius: 0.5rem !important;
     }
@@ -365,7 +358,6 @@
         box-shadow: 0 .125rem .25rem rgba(0,0,0,.075) !important;
     }
 
-    /* Ajustes para input groups */
     .input-group select,
     .input-group .form-select {
         padding: 0.375rem 0.75rem;
@@ -387,7 +379,6 @@
         font-size: 0.875rem;
     }
 
-    /* Ajustes específicos para el grupo de proveedor */
     #reabastecimientoForm .input-group {
         width: 100%;
     }
@@ -414,7 +405,6 @@
         margin-left: -1px;
     }
 
-    /* Ajustes para input groups en las tablas */
     #detalleTable .input-group {
         width: 100%;
     }
@@ -429,7 +419,6 @@
         border-bottom-left-radius: 0;
     }
 
-    /* Ajustes responsive para los input groups */
     @media (max-width: 768px) {
         .input-group {
             flex-wrap: nowrap !important;
@@ -443,7 +432,6 @@
         }
     }
 
-    /* Mejorar apariencia de los botones */
     .btn {
         display: inline-flex;
         align-items: center;
@@ -451,7 +439,6 @@
         white-space: nowrap;
     }
 
-    /* Grupo de botones en el footer del form */
     .btn-toolbar {
         display: flex;
         flex-wrap: wrap;
@@ -462,7 +449,6 @@
         display: inline-flex;
     }
 
-    /* Responsive para grupo de botones */
     @media (max-width: 576px) {
         .btn-toolbar {
             flex-direction: column;
@@ -480,7 +466,6 @@
         }
     }
 
-    /* Botones */
     .btn {
         padding: 0.5rem 1rem;
         display: inline-flex;
@@ -492,7 +477,6 @@
         font-size: 0.875rem;
     }
     
-    /* Scrollbars personalizados */
     .table-responsive::-webkit-scrollbar {
         width: 8px;
         height: 8px;
@@ -512,7 +496,6 @@
         background: #666;
     }
 
-    /* Ajustes específicos para el formulario de reabastecimiento */
     #reabastecimientoForm {
         display: flex;
         flex-direction: column;
@@ -535,13 +518,11 @@
         border-bottom: 2px solid #dee2e6;
     }
 
-    /* Contenedor de la tabla con scroll */
     .overflow-auto {
         scrollbar-width: thin;
         scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
     }
 
-    /* Estilo para scrollbar en WebKit */
     .overflow-auto::-webkit-scrollbar {
         width: 6px;
     }
@@ -555,7 +536,6 @@
         border-radius: 3px;
     }
 
-    /* Estilo para las filas de la tabla */
     #detalleTable tbody tr {
         background-color: white;
     }
@@ -564,23 +544,65 @@
         background-color: #f8f9fa;
     }
 
-    /* Asegurar que los inputs tengan el mismo alto */
     #detalleTable input,
     #detalleTable select {
         height: 31px;
         padding: 0.25rem 0.5rem;
     }
 
-    /* Mejorar la visibilidad de los bordes */
     .table > :not(caption) > * > * {
         border-bottom-width: 1px;
     }
 
-    /* Ajustes para el contenedor principal */
     .col-md-5 {
         height: 100%;
     }
 </style>
+
+<!-- Modal Editar Reabastecimiento -->
+<div class="modal fade" id="editarReabastecimientoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Reabastecimiento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editarReabastecimientoForm">
+                    <input type="hidden" id="editReabastecimientoId">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Proveedor</label>
+                            {{ form.proveedor }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Forma de Pago</label>
+                            {{ form.forma_pago }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Estado</label>
+                            {{ form.estado }}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Observaciones</label>
+                            {{ form.observaciones }}
+                        </div>
+                    </div>
+                    <hr>
+                    <h5 class="text-secondary">Detalles</h5>
+                    <div id="edit-detalles-container"></div>
+                    <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="add-edit-detalle-btn">Agregar Detalle</button>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="guardarEdicionReabastecimientoBtn">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <!-- Modal Nuevo Proveedor -->
 <div class="modal fade" id="nuevoProveedorModal" tabindex="-1" aria-hidden="true">
@@ -698,217 +720,269 @@
 
 {% block extra_js %}
 <script>
-async function editarReabastecimiento(id) {
-    try {
-        const response = await fetch(`/reabastecimientos/${id}/editar/`);
-        if (!response.ok) throw new Error('Error al cargar el reabastecimiento');
-        const data = await response.json();
-        
-        // Aquí iría el código para llenar el modal con los datos
-        // Por ahora solo mostramos un mensaje
-        alert('Función de edición en desarrollo');
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error al intentar editar el reabastecimiento');
-    }
-}
+document.addEventListener('DOMContentLoaded', function () {
+    const FORMSET_PREFIX = '{{ formset.prefix }}';
+    const PRODUCTS_DATA = JSON.parse('{{ products_json|default:'[]'|escapejs }}');
+    const productos = JSON.parse('{{ all_products_json|default:'[]'|escapejs }}');
 
-async function eliminarReabastecimiento(id) {
-    if (!confirm('¿Estás seguro de que deseas eliminar este reabastecimiento?')) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`/reabastecimientos/${id}/eliminar/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            }
-        });
-        
-        if (!response.ok) {
+    window.editarReabastecimiento = async function(id) {
+        try {
+            const response = await fetch(`/reabastecimientos/${id}/editar/`);
+            if (!response.ok) throw new Error('Error al cargar el reabastecimiento');
             const data = await response.json();
-            throw new Error(data.error || 'Error al eliminar el reabastecimiento');
+
+            document.getElementById('editReabastecimientoId').value = data.id;
+            document.querySelector('#editarReabastecimientoForm [name="proveedor"]').value = data.proveedor_id;
+            document.querySelector('#editarReabastecimientoForm [name="forma_pago"]').value = data.forma_pago;
+            document.querySelector('#editarReabastecimientoForm [name="estado"]').value = data.estado;
+            document.querySelector('#editarReabastecimientoForm [name="observaciones"]').value = data.observaciones;
+
+            const detallesContainer = document.getElementById('edit-detalles-container');
+            detallesContainer.innerHTML = ''; // Limpiar detalles anteriores
+            
+            const managementForm = document.createElement('div');
+            managementForm.innerHTML = `
+                <input type="hidden" name="${FORMSET_PREFIX}-TOTAL_FORMS" value="${data.detalles.length}">
+                <input type="hidden" name="${FORMSET_PREFIX}-INITIAL_FORMS" value="${data.detalles.length}">
+                <input type="hidden" name="${FORMSET_PREFIX}-MIN_NUM_FORMS" value="0">
+                <input type="hidden" name="${FORMSET_PREFIX}-MAX_NUM_FORMS" value="1000">
+            `;
+            detallesContainer.appendChild(managementForm);
+
+            data.detalles.forEach((detalle, index) => {
+                addDetalleToEditForm(detalle, index);
+            });
+
+            const modal = new bootstrap.Modal(document.getElementById('editarReabastecimientoModal'));
+            modal.show();
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al intentar editar el reabastecimiento');
+        }
+    }
+
+    window.recibirReabastecimiento = async function(id) {
+        if (!confirm('¿Estás seguro de que deseas marcar este reabastecimiento como recibido? El stock de los productos se actualizará.')) {
+            return;
         }
 
-        // Recargar la página
-        window.location.reload();
-    } catch (error) {
-        console.error('Error:', error);
-        alert(error.message);
-    }
-}
-// Productos data para auto-fill (pasado desde la vista)
-const PRODUCTS_DATA = JSON.parse('{{ products_json|default:'[]'|escapejs }}');
+        try {
+            const response = await fetch(`/reabastecimientos/${id}/recibir/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Error al recibir el reabastecimiento');
+            }
 
-function getProductPrice(productId){
-    if(!PRODUCTS_DATA || !productId) return 0;
-    const p = PRODUCTS_DATA.find(x => x.id == Number(productId));
-    return p ? Number(p.precio_unitario) : 0;
-}
+            const data = await response.json();
+            const row = document.querySelector(`#reabastecimiento-${id}`);
+            const statusCell = row.cells[4];
+            statusCell.innerHTML = `<span class="badge bg-success text-white">${data.estado}</span>`;
+            
+            const button = row.querySelector('.btn-success');
+            button.disabled = true;
 
-// Funciones para manejar nuevos proveedores y productos
-async function guardarNuevaCategoria(data) {
-    try {
-        const response = await fetch("{% url 'categoria_create_ajax' %}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            },
-            body: JSON.stringify(data)
-        });
-        
-        if (!response.ok) throw new Error('Error al guardar categoría');
-        
-        const categoria = await response.json();
-        const select = document.getElementById('categoriaProducto');
-        const option = new Option(categoria.nombre, categoria.id);
-        select.add(option);
-        select.value = categoria.id;
-        
-        bootstrap.Modal.getInstance(document.getElementById('nuevaCategoriaModal')).hide();
-        return categoria;
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error al guardar la categoría');
-    }
-}
+            alert(data.message);
 
-async function guardarNuevoProveedor(data) {
-    try {
-        const response = await fetch("{% url 'proveedor_create' %}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            },
-            body: JSON.stringify(data)
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Error al guardar proveedor');
+        } catch (error) {
+            console.error('Error:', error);
+            alert(error.message);
         }
-        
-        const proveedor = await response.json();
-        const select = document.querySelector('[name$="proveedor"]');
-        const option = new Option(proveedor.nombre_empresa, proveedor.id);
-        select.add(option);
-        select.value = proveedor.id;
-        
-        bootstrap.Modal.getInstance(document.getElementById('nuevoProveedorModal')).hide();
-        return proveedor;
-    } catch (error) {
-        console.error('Error:', error);
-        alert(error.message || 'Error al guardar el proveedor');
     }
-}
 
-async function guardarNuevoProducto(data) {
-    try {
-        const response = await fetch("{% url 'producto_create_ajax' %}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            },
-            body: JSON.stringify(data)
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Error al guardar producto');
+    window.eliminarReabastecimiento = async function(id) {
+        if (!confirm('¿Estás seguro de que deseas eliminar este reabastecimiento?')) {
+            return;
         }
-        
-        const producto = await response.json();
-        PRODUCTS_DATA.push(producto);
-        
-        const selects = document.querySelectorAll('select[name$="-producto"]');
-        selects.forEach(select => {
-            const option = new Option(producto.nombre, producto.id);
+
+        try {
+            const response = await fetch(`/reabastecimientos/${id}/eliminar/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Error al eliminar el reabastecimiento');
+            }
+
+            const row = document.getElementById(`reabastecimiento-${id}`);
+            const detailRow = document.getElementById(`detalleReabastecimiento${id}`);
+            if (row) row.remove();
+            if (detailRow) detailRow.remove();
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert(error.message);
+        }
+    }
+
+    function getProductPrice(productId){
+        if(!PRODUCTS_DATA || !productId) return 0;
+        const p = PRODUCTS_DATA.find(x => x.id == Number(productId));
+        return p ? Number(p.precio_unitario) : 0;
+    }
+
+    async function guardarNuevaCategoria(data) {
+        try {
+            const response = await fetch("{% url 'categoria_create_ajax' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (!response.ok) throw new Error('Error al guardar categoría');
+            
+            const categoria = await response.json();
+            const select = document.getElementById('categoriaProducto');
+            const option = new Option(categoria.nombre, categoria.id);
             select.add(option);
-        });
-        
-        bootstrap.Modal.getInstance(document.getElementById('nuevoProductoModal')).hide();
-        return producto;
-    } catch (error) {
-        console.error('Error:', error);
-        alert(error.message || 'Error al guardar el producto');
+            select.value = categoria.id;
+            
+            bootstrap.Modal.getInstance(document.getElementById('nuevaCategoriaModal')).hide();
+            return categoria;
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al guardar la categoría');
+        }
     }
-}
 
-// Manejo simple para añadir filas al formset dinámicamente y auto-fill
-(function(){
+    async function guardarNuevoProveedor(data) {
+        try {
+            const response = await fetch("{% url 'proveedor_create' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Error al guardar proveedor');
+            }
+            
+            const proveedor = await response.json();
+            const select = document.querySelector('[name$="proveedor"]');
+            const option = new Option(proveedor.nombre_empresa, proveedor.id);
+            select.add(option);
+            select.value = proveedor.id;
+            
+            bootstrap.Modal.getInstance(document.getElementById('nuevoProveedorModal')).hide();
+            return proveedor;
+        } catch (error) {
+            console.error('Error:', error);
+            alert(error.message || 'Error al guardar el proveedor');
+        }
+    }
+
+    async function guardarNuevoProducto(data) {
+        try {
+            const response = await fetch("{% url 'producto_create_ajax' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Error al guardar producto');
+            }
+            
+            const producto = await response.json();
+            PRODUCTS_DATA.push(producto);
+            
+            const selects = document.querySelectorAll('select[name$="-producto"]');
+            selects.forEach(select => {
+                const option = new Option(producto.nombre, producto.id);
+                select.add(option);
+            });
+            
+            bootstrap.Modal.getInstance(document.getElementById('nuevoProductoModal')).hide();
+            return producto;
+        } catch (error) {
+            console.error('Error:', error);
+            alert(error.message || 'Error al guardar el producto');
+        }
+    }
+
     const addBtn = document.getElementById('addDetalleBtn');
     const detalleTable = document.getElementById('detalleTable');
-    if(!addBtn) return;
+    if(addBtn) {
 
-    // Delegación: cambio en selects de producto
-    detalleTable.addEventListener('change', function(e){
-        const target = e.target;
-        if(!target) return;
-        // detectar selects de producto (nombre contiene '-producto' en formset)
-        if(target.tagName.toLowerCase() === 'select' && /-producto$/.test(target.name)){
-            const row = target.closest('tr');
-            const selectedId = target.value;
-            const costoInput = row.querySelector('input[name$="-costo_unitario"]');
-            const cantidadInput = row.querySelector('input[name$="-cantidad"]');
-            const fechaCaducidadInput = row.querySelector('input[name$="-fecha_caducidad"]');
-            
-            if(selectedId) {
-                const price = getProductPrice(selectedId);
-                if(costoInput){
-                    costoInput.value = Math.round(price);
+        detalleTable.addEventListener('change', function(e){
+            const target = e.target;
+            if(!target) return;
+            if(target.tagName.toLowerCase() === 'select' && /-producto$/.test(target.name)){
+                const row = target.closest('tr');
+                const selectedId = target.value;
+                const costoInput = row.querySelector('input[name$="-costo_unitario"]');
+                const cantidadInput = row.querySelector('input[name$="-cantidad"]');
+                const fechaCaducidadInput = row.querySelector('input[name$="-fecha_caducidad"]');
+                
+                if(selectedId) {
+                    const price = getProductPrice(selectedId);
+                    if(costoInput){
+                        costoInput.value = Math.round(price);
+                    }
+                    if(cantidadInput && !cantidadInput.value){
+                        cantidadInput.value = "1";
+                    }
+                } else {
+                    if(costoInput) costoInput.value = "";
+                    if(cantidadInput) cantidadInput.value = "";
+                    if(fechaCaducidadInput) fechaCaducidadInput.value = "";
                 }
-                if(cantidadInput && !cantidadInput.value){
-                    cantidadInput.value = "1";
-                }
+            }
+        });
+
+        addBtn.addEventListener('click', function(){
+            const totalFormsInput = document.querySelector(`input[name="${FORMSET_PREFIX}-TOTAL_FORMS"]`);
+            const current = parseInt(totalFormsInput.value, 10);
+            const templateRow = document.querySelector('#empty-form-template tr');
+            const newRowHtml = templateRow.innerHTML.replace(/__prefix__/g, current);
+            const tbody = document.querySelector('#detalleTable tbody');
+            const tr = document.createElement('tr');
+            tr.innerHTML = newRowHtml;
+            tbody.appendChild(tr);
+            totalFormsInput.value = current + 1;
+        });
+
+        detalleTable.addEventListener('click', function(e){
+            const btn = e.target.closest('.remove-row');
+            if(!btn) return;
+            const row = btn.closest('tr');
+            if(!row) return;
+            const deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            if(deleteCheckbox){
+                deleteCheckbox.checked = true;
+                row.style.display = 'none';
             } else {
-                // Limpiar campos cuando se deselecciona el producto
-                if(costoInput) costoInput.value = "";
-                if(cantidadInput) cantidadInput.value = "";
-                if(fechaCaducidadInput) fechaCaducidadInput.value = "";
+                row.remove();
+                const totalFormsInput = document.querySelector(`input[name="${FORMSET_PREFIX}-TOTAL_FORMS"]`);
+                if(totalFormsInput){
+                    totalFormsInput.value = parseInt(totalFormsInput.value, 10) - 1;
+                }
             }
-        }
-    });
+        });
+    }
 
-    addBtn.addEventListener('click', function(){
-        const totalFormsInput = document.querySelector('input[name="form-TOTAL_FORMS"]');
-        const current = parseInt(totalFormsInput.value, 10);
-        const templateRow = document.querySelector('#empty-form-template tr');
-        const newRowHtml = templateRow.innerHTML.replace(/__prefix__/g, current);
-        const tbody = document.querySelector('#detalleTable tbody');
-        const tr = document.createElement('tr');
-        tr.innerHTML = newRowHtml;
-        tbody.appendChild(tr);
-        totalFormsInput.value = current + 1;
-    });
-
-    // Delegación para botón eliminar
-    detalleTable.addEventListener('click', function(e){
-        const btn = e.target.closest('.remove-row');
-        if(!btn) return;
-        const row = btn.closest('tr');
-        if(!row) return;
-        // Buscar checkbox DELETE en la fila
-        const deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
-        if(deleteCheckbox){
-            // Marcar y ocultar la fila
-            deleteCheckbox.checked = true;
-            row.style.display = 'none';
-        } else {
-            // Si no existe (caso improbable), simplemente remover la fila del DOM
-            row.remove();
-            // actualizar TOTAL_FORMS para mantener consistencia
-            const totalFormsInput = document.querySelector('input[name="form-TOTAL_FORMS"]');
-            if(totalFormsInput){
-                totalFormsInput.value = parseInt(totalFormsInput.value, 10) - 1;
-            }
-        }
-    });
-    // Event listeners para los botones de guardar en los modales
     document.getElementById('guardarCategoriaBtn').addEventListener('click', async function() {
         const form = document.getElementById('nuevaCategoriaForm');
         if (!form.checkValidity()) {
@@ -961,13 +1035,251 @@ async function guardarNuevoProducto(data) {
         form.reset();
     });
 
-    // Limpiar formularios cuando se cierren los modales
+    async function guardarReabastecimiento(form) {
+        const formData = new FormData(form);
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                let errorMessage = 'Error al guardar el reabastecimiento.';
+                if (errorData.errors) {
+                    errorMessage += '\n' + JSON.stringify(errorData.errors, null, 2);
+                }
+                if (errorData.formset_errors) {
+                    errorMessage += '\n' + JSON.stringify(errorData.formset_errors, null, 2);
+                }
+                if (errorData.error) {
+                    errorMessage = errorData.error;
+                }
+                throw new Error(errorMessage);
+            }
+
+            const reab = await response.json();
+
+            const newRow = document.createElement('tr');
+            newRow.className = 'align-middle';
+            newRow.innerHTML = `
+                <td>
+                    <button class="btn btn-link text-decoration-none p-0 text-dark fw-bold" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#detalleReabastecimiento${reab.id}"
+                            aria-expanded="false" aria-controls="detalleReabastecimiento${reab.id}">
+                        <i class="fas fa-chevron-down me-1"></i>
+                        ${reab.fecha}
+                    </button>
+                </td>
+                <td>${reab.proveedor}</td>
+                <td>${reab.costo_total.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' })}</td>
+                <td>${reab.forma_pago}</td>
+                <td><span class="badge bg-info text-dark">${reab.estado}</span></td>
+                <td>${reab.observaciones || '-'}</td>
+                <td class="text-end">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-success"
+                                onclick="recibirReabastecimiento('${reab.id}')">
+                            <i class="fas fa-check-circle"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                onclick="editarReabastecimiento('${reab.id}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                onclick="eliminarReabastecimiento('${reab.id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+
+            const detailRow = document.createElement('tr');
+            detailRow.className = 'collapse';
+            detailRow.id = `detalleReabastecimiento${reab.id}`;
+
+            let detallesHtml = '<td colspan="7" class="p-0"><div class="bg-light border-start border-5 border-primary p-3">';
+            detallesHtml += '<h6 class="text-primary mb-3">Detalles del Reabastecimiento</h6>';
+            detallesHtml += '<div class="table-responsive"><table class="table table-sm table-hover mb-0">';
+            detallesHtml += `<thead class="table-light">
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Categoría</th>
+                                    <th class="text-center">Cantidad</th>
+                                    <th class="text-end">Costo Unitario</th>
+                                    <th class="text-end">Subtotal</th>
+                                    <th class="text-center">Estado Actual</th>
+                                </tr>
+                            </thead><tbody>`;
+
+            reab.detalles.forEach(d => {
+                detallesHtml += `
+                    <tr>
+                        <td>${d.producto_nombre}</td>
+                        <td>${d.categoria_nombre}</td>
+                        <td class="text-center">${d.cantidad}</td>
+                        <td class="text-end">${d.costo_unitario.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' })}</td>
+                        <td class="text-end">${d.subtotal.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' })}</td>
+                        <td class="text-center"><span class="badge bg-secondary">${d.estado_lote}</span></td>
+                    </tr>
+                `;
+            });
+
+            detallesHtml += `</tbody><tfoot class="table-light">
+                                <tr>
+                                    <td colspan="5" class="text-end fw-bold">Total:</td>
+                                    <td class="text-end fw-bold">${reab.costo_total.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' })}</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot></table></div></div></td>`;
+            detailRow.innerHTML = detallesHtml;
+
+            const tableBody = document.querySelector('.table-responsive tbody');
+            tableBody.prepend(detailRow);
+            tableBody.prepend(newRow);
+
+            form.reset();
+            const detalleTableBody = document.querySelector('#detalleTable tbody');
+            detalleTableBody.innerHTML = '';
+            document.querySelector(`input[name="${FORMSET_PREFIX}-TOTAL_FORMS"]`).value = 0;
+            document.getElementById('addDetalleBtn').click();
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert(error.message);
+            // Rethrow the error so the finally block in the event listener knows there was a problem.
+            throw error;
+        }
+    }
+
+    document.getElementById('reabastecimientoForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const submitBtn = document.getElementById('guardarReabastecimientoBtn');
+        const originalBtnHtml = submitBtn.innerHTML;
+
+        // Disable button and show spinner
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            Guardando...
+        `;
+
+        try {
+            await guardarReabastecimiento(this);
+        } finally {
+            // Re-enable button and restore text
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHtml;
+        }
+    });
+
     ['nuevoProveedorModal', 'nuevoProductoModal'].forEach(modalId => {
         document.getElementById(modalId).addEventListener('hidden.bs.modal', function() {
             const form = this.querySelector('form');
             if(form) form.reset();
         });
     });
-})();
+
+    document.getElementById('nuevaCategoriaModal').addEventListener('hidden.bs.modal', function (event) {
+        if (document.getElementById('nuevoProductoModal').classList.contains('show')) {
+            document.body.classList.add('modal-open');
+        }
+    });
+
+    document.getElementById('guardarEdicionReabastecimientoBtn').addEventListener('click', async function () {
+        const form = document.getElementById('editarReabastecimientoForm');
+        const id = document.getElementById('editReabastecimientoId').value;
+        const formData = new FormData(form);
+
+        try {
+            const response = await fetch(`/reabastecimientos/${id}/actualizar/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                let errorMessage = 'Error al actualizar el reabastecimiento.';
+                if (errorData.errors) {
+                    errorMessage += '\n' + JSON.stringify(errorData.errors, null, 2);
+                }
+                if (errorData.formset_errors) {
+                    errorMessage += '\n' + JSON.stringify(errorData.formset_errors, null, 2);
+                }
+                if (errorData.error) {
+                    errorMessage = errorData.error;
+                }
+                throw new Error(errorMessage);
+            }
+
+            const reab = await response.json();
+            const row = document.getElementById(`reabastecimiento-${reab.id}`);
+            row.cells[1].textContent = reab.proveedor;
+            row.cells[2].textContent = reab.costo_total.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' });
+            row.cells[3].textContent = reab.forma_pago;
+            row.cells[4].innerHTML = `<span class="badge bg-info text-dark">${reab.estado}</span>`;
+            row.cells[5].textContent = reab.observaciones || '-';
+
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editarReabastecimientoModal'));
+            modal.hide();
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert(error.message);
+        }
+    });
+
+    document.getElementById('add-edit-detalle-btn').addEventListener('click', function () {
+        addDetalleToEditForm();
+    });
+
+    function addDetalleToEditForm(detalle = {}, index = -1) {
+        const container = document.getElementById('edit-detalles-container');
+        const newIndex = index === -1 ? container.children.length : index;
+
+        const detalleDiv = document.createElement('div');
+        detalleDiv.classList.add('row', 'g-3', 'mb-3', 'align-items-center');
+        
+        let options = '';
+        for (const p of productos) {
+            const selected = detalle.producto_id == p.id ? 'selected' : '';
+            options += `<option value="${p.id}" ${selected}>${p.nombre}</option>`;
+        }
+
+        detalleDiv.innerHTML = `
+            <div class="col-md-4">
+                <label class="form-label">Producto</label>
+                <select name="${FORMSET_PREFIX}-${newIndex}-producto" class="form-select">
+                    ${options}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Cantidad</label>
+                <input type="number" name="${FORMSET_PREFIX}-${newIndex}-cantidad" class="form-control" value="${detalle.cantidad || 1}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Costo Unitario</label>
+                <input type="number" name="${FORMSET_PREFIX}-${newIndex}-costo_unitario" class="form-control" value="${detalle.costo_unitario || 0}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Fecha Cad.</label>
+                <input type="date" name="${FORMSET_PREFIX}-${newIndex}-fecha_caducidad" class="form-control" value="${detalle.fecha_caducidad || ''}">
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">&nbsp;</label>
+                <button type="button" class="btn btn-danger btn-sm remove-edit-detalle"><i class="fas fa-trash"></i></button>
+            </div>
+            <input type="hidden" name="${FORMSET_PREFIX}-${newIndex}-id" value="${detalle.id || ''}">
+        `;
+        container.appendChild(detalleDiv);
+    }
+});
 </script>
 {% endblock %}

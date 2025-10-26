@@ -3,7 +3,8 @@ from django.contrib.auth.forms import UserCreationForm
 from django.core.validators import MinValueValidator
 from .models import Usuario, Rol, Producto, Lote, Categoria
 from .models import Reabastecimiento, ReabastecimientoDetalle, Proveedor
-from django.forms import modelformset_factory
+from django.forms import inlineformset_factory
+from datetime import date
 
 class VendedorRegistrationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
@@ -80,17 +81,22 @@ class LoteForm(forms.ModelForm):
             'fecha_caducidad': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
         }
 
+    def clean_fecha_caducidad(self):
+        fecha_caducidad = self.cleaned_data.get('fecha_caducidad')
+        if fecha_caducidad and fecha_caducidad < date.today():
+            raise forms.ValidationError("La fecha de caducidad no puede ser anterior a la fecha actual.")
+        return fecha_caducidad
 
 class ReabastecimientoForm(forms.ModelForm):
-    fecha = forms.DateTimeField(widget=forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}), required=False)
 
     class Meta:
         model = Reabastecimiento
-        fields = ['fecha', 'proveedor', 'forma_pago', 'observaciones']
+        fields = ['proveedor', 'forma_pago', 'observaciones', 'estado']
         widgets = {
             'proveedor': forms.Select(attrs={'class': 'form-select'}),
-            'forma_pago': forms.TextInput(attrs={'class': 'form-control'}),
+            'forma_pago': forms.Select(attrs={'class': 'form-select'}),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'estado': forms.Select(attrs={'class': 'form-select'}),
         }
 
 
@@ -100,18 +106,26 @@ class ReabastecimientoDetalleForm(forms.ModelForm):
 
     class Meta:
         model = ReabastecimientoDetalle
-        fields = ['producto', 'cantidad', 'costo_unitario']
+        fields = ['producto', 'cantidad', 'costo_unitario', 'fecha_caducidad']
         widgets = {
             'producto': forms.Select(attrs={'class': 'form-select'}),
             'cantidad': forms.NumberInput(attrs={'class': 'form-control'}),
             'costo_unitario': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
+            'fecha_caducidad': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
         }
 
+    def clean_fecha_caducidad(self):
+        fecha_caducidad = self.cleaned_data.get('fecha_caducidad')
+        if fecha_caducidad and fecha_caducidad < date.today():
+            raise forms.ValidationError("La fecha de caducidad no puede ser anterior a la fecha actual.")
+        return fecha_caducidad
 
 # Un formset para múltiples líneas de detalle en el formulario de reabastecimiento
-ReabastecimientoDetalleFormSet = modelformset_factory(
+ReabastecimientoDetalleFormSet = inlineformset_factory(
+    Reabastecimiento,
     ReabastecimientoDetalle,
     form=ReabastecimientoDetalleForm,
-    extra=3,
-    can_delete=True
+    extra=1,
+    can_delete=True,
+    fk_name='reabastecimiento'
 )
