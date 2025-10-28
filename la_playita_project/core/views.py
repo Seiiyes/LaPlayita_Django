@@ -503,6 +503,11 @@ def reabastecimiento_editar(request, pk):
             'reabastecimientodetalle_set__producto',
             'reabastecimientodetalle_set__lote_set'
         ).get(pk=pk)
+
+        if reab.estado == Reabastecimiento.ESTADO_RECIBIDO:
+            return JsonResponse({
+                'error': 'No se puede editar un reabastecimiento que ya ha sido recibido.'
+            }, status=400)
         
         if any(lote.ventadetalle_set.exists()
                for detalle in reab.reabastecimientodetalle_set.all()
@@ -545,6 +550,11 @@ def reabastecimiento_update(request, pk):
     try:
         with transaction.atomic():
             reab = get_object_or_404(Reabastecimiento, pk=pk)
+
+            if reab.estado == Reabastecimiento.ESTADO_RECIBIDO:
+                return JsonResponse({
+                    'error': 'No se puede editar un reabastecimiento que ya ha sido recibido.'
+                }, status=400)
             
             if any(lote.ventadetalle_set.exists() for detalle in reab.reabastecimientodetalle_set.all() for lote in detalle.lote_set.all()):
                 return JsonResponse({'error': 'No se puede editar un reabastecimiento con productos vendidos.'}, status=400)

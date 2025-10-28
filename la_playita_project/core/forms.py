@@ -120,6 +120,17 @@ class ReabastecimientoDetalleForm(forms.ModelForm):
             raise forms.ValidationError("La fecha de caducidad no puede ser anterior a la fecha actual.")
         return fecha_caducidad
 
+
+from django.contrib.auth.forms import PasswordResetForm
+
+class CustomPasswordResetForm(PasswordResetForm):
+    def get_users(self, email):
+        """Given an email, return matching user(s) who should receive a reset. """
+        return Usuario.objects.filter(
+            email__iexact=email,
+            estado='activo',
+        )
+
 # Un formset para múltiples líneas de detalle en el formulario de reabastecimiento
 ReabastecimientoDetalleFormSet = inlineformset_factory(
     Reabastecimiento,

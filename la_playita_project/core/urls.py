@@ -2,6 +2,7 @@
 from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
+from .forms import CustomPasswordResetForm
 
 urlpatterns = [
     # ----------------------------------------------
@@ -13,6 +14,26 @@ urlpatterns = [
     path('accounts/register/', views.register_view, name='register'),
     path('accounts/profile/', views.login_redirect_view, name='login_redirect'),
     path('dashboard/', views.dashboard_view, name='dashboard'),
+
+    # ----------------------------------------------
+    # Restablecimiento de Contraseña
+    # ----------------------------------------------
+    path('accounts/password_reset/', 
+         auth_views.PasswordResetView.as_view(
+             template_name='registration/password_reset_form.html',
+             form_class=CustomPasswordResetForm,
+             html_email_template_name='registration/password_reset_html_email.html'
+         ), 
+         name='password_reset'),
+    path('accounts/password_reset/done/', 
+         auth_views.PasswordResetDoneView.as_view(template_name='registration/password_reset_done.html'), 
+         name='password_reset_done'),
+    path('accounts/reset/<uidb64>/<token>/', 
+         auth_views.PasswordResetConfirmView.as_view(template_name='registration/password_reset_confirm.html'), 
+         name='password_reset_confirm'),
+    path('accounts/reset/done/', 
+         auth_views.PasswordResetCompleteView.as_view(template_name='registration/password_reset_complete.html'), 
+         name='password_reset_complete'),
 
 # ----------------------------------------------
 # Gestión de Inventario (Productos)

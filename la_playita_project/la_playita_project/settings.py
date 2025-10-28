@@ -31,6 +31,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'core.apps.CoreConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -38,7 +39,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
-    'core.apps.CoreConfig',
 ]
 
 MIDDLEWARE = [
@@ -147,3 +147,28 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Custom User Model
 AUTH_USER_MODEL = 'core.Usuario'
+
+# ----------------------------------------------
+# Configuración de Correo Electrónico
+# ----------------------------------------------
+
+# ¡ACCIÓN REQUERIDA! Para que el envío de correos funcione, debes configurar un servidor SMTP.
+# A continuación se muestra un ejemplo usando Gmail.
+
+# 1. CAMBIA EL BACKEND:
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend' # Comenta o elimina esta línea
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+# 2. CONFIGURA LOS DETALLES DE TU SERVIDOR SMTP (ejemplo para Gmail):
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+# 3. INGRESA TUS CREDENCIALES (¡No las guardes directamente en el código en producción!):
+EMAIL_HOST_USER = 'soporte.laplayita@gmail.com'
+EMAIL_HOST_PASSWORD = 'jvcizyxemizesuwr'
+
+# NOTA IMPORTANTE SOBRE GMAIL:
+# Necesitarás generar una "Contraseña de Aplicación" para tu cuenta de Google.
+# No uses tu contraseña normal. Lee cómo hacerlo aquí:
+# https://support.google.com/accounts/answer/185833
