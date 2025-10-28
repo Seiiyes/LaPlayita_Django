@@ -11,8 +11,9 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 from django.core.mail import send_mail
+from django.utils import timezone
 
-from .models import Producto, Lote, Categoria, MovimientoInventario
+from .models import Producto, Lote, Categoria, MovimientoInventario, Cliente, Venta, VentaDetalle
 from .forms import VendedorRegistrationForm, ProductoForm, LoteForm, CategoriaForm
 from .models import Reabastecimiento, ReabastecimientoDetalle, Proveedor
 from .forms import ReabastecimientoForm, ReabastecimientoDetalleFormSet
@@ -114,6 +115,108 @@ def dashboard_view(request):
     }
     return render(request, 'core/dashboard.html', context)
 
+
+# ----------------------------------------------
+# Vistas de Punto de Venta (POS)
+# ----------------------------------------------
+
+@never_cache
+@login_required
+@check_user_role(allowed_roles=['Administrador', 'Vendedor'])
+def pos_view(request):
+    """
+    Vista para la interfaz de Punto de Venta (POS).
+    """
+    productos = Producto.objects.filter(stock_actual__gt=0).order_by('nombre')
+    clientes = Cliente.objects.all().order_by('nombres', 'apellidos')
+    
+    context = {
+        'productos': productos,
+        'clientes': clientes,
+    }
+    return render(request, 'core/pos.html', context)
+
+@login_required
+@require_POST
+@check_user_role(allowed_roles=['Administrador', 'Vendedor'])
+def procesar_venta(request):
+    try:
+        data = json.loads(request.body)
+        
+        with transaction.atomic(): # Start transaction
+            # Get all product IDs from the cart
+            product_ids = [item['id'] for item in data['items']]
+            
+            # Lock the products for this sale to prevent deadlocks
+            # We map them by ID for easy access
+            productos_a_vender = {
+                p.id: p for p in Producto.objects.select_for_update().filter(id__in=product_ids)
+            }
+
+            cliente_id = data.get('cliente_id')
+            cliente = Cliente.objects.get(pk=cliente_id) if cliente_id else None
+
+            venta = Venta.objects.create(
+                fecha_venta=timezone.now(),
+                metodo_pago=data['metodo_pago'],
+                canal_venta='local',
+                cliente=cliente,
+                usuario=request.user,
+                total_venta=0
+            )
+
+            total_venta_calculado = 0
+            for item in data['items']:
+                producto_id = int(item['id'])
+                producto = productos_a_vender.get(producto_id)
+                
+                if not producto:
+                    raise Exception(f"Producto con ID {producto_id} no encontrado.")
+
+                cantidad_a_vender = int(item['cantidad'])
+
+                # We must re-check stock inside the transaction to be safe
+                if producto.stock_actual < cantidad_a_vender:
+                    raise Exception(f"Stock insuficiente para {producto.nombre} (Stock: {producto.stock_actual}, Solicitado: {cantidad_a_vender})")
+
+                lotes = Lote.objects.filter(
+                    producto=producto, 
+                    cantidad_disponible__gt=0
+                ).order_by('fecha_caducidad')
+
+                cantidad_restante_por_vender = cantidad_a_vender
+                for lote in lotes:
+                    if cantidad_restante_por_vender == 0:
+                        break
+
+                    cantidad_a_tomar_del_lote = min(lote.cantidad_disponible, cantidad_restante_por_vender)
+                    
+                    VentaDetalle.objects.create(
+                        venta=venta,
+                        producto=producto,
+                        lote=lote,
+                        cantidad=cantidad_a_tomar_del_lote,
+                        subtotal=cantidad_a_tomar_del_lote * producto.precio_unitario
+                    )
+
+                    lote.cantidad_disponible -= cantidad_a_tomar_del_lote
+                    lote.save()
+
+                    total_venta_calculado += cantidad_a_tomar_del_lote * producto.precio_unitario
+                    cantidad_restante_por_vender -= cantidad_a_tomar_del_lote
+            
+            if cantidad_restante_por_vender > 0:
+                # This should not happen if the initial stock check is correct, but it's a good safeguard.
+                raise Exception(f"No se pudo satisfacer la cantidad completa para {producto.nombre}. Error de lógica de stock.")
+
+            venta.total_venta = total_venta_calculado
+            venta.save()
+
+        return JsonResponse({'message': 'Venta completada exitosamente', 'venta_id': venta.id})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
 # ----------------------------------------------
 # Vistas de Gestión de Productos
 # ----------------------------------------------
@@ -139,7 +242,6 @@ def inventario_list(request):
     # Anotamos los productos con la información de los lotes
     productos = Producto.objects.annotate(
         vencimiento_proximo=models.Min('lote__fecha_caducidad', filter=models.Q(lote__cantidad_disponible__gt=0)),
-        # Nombres de campo alineados con la plantilla: lote_mas_reciente / proveedor_lote_mas_reciente
         lote_mas_reciente=models.Subquery(recent_lot_subquery),
         proveedor_lote_mas_reciente=models.Subquery(recent_lot_supplier_subquery)
     ).select_related('categoria').all()
@@ -225,7 +327,6 @@ def producto_update(request, pk):
 @login_required
 @require_POST
 @check_user_role(allowed_roles=['Administrador'])
-
 def producto_delete(request, pk):
     producto = get_object_or_404(Producto, pk=pk)
     producto.delete()
@@ -254,7 +355,6 @@ def categoria_create(request):
 @never_cache
 @login_required
 @check_user_role(allowed_roles=['Administrador'])
-
 def lote_list(request, producto_pk):
     producto = get_object_or_404(Producto, pk=producto_pk)
     lotes = Lote.objects.filter(producto=producto).order_by('-fecha_entrada')
@@ -410,7 +510,6 @@ def reabastecimiento_create(request):
 @never_cache
 @login_required
 @check_user_role(allowed_roles=['Administrador'])
-
 def reabastecimiento_recibir(request, pk):
     """
     Marcar un reabastecimiento como 'recibido' y crear los lotes correspondientes,
@@ -450,7 +549,6 @@ def reabastecimiento_recibir(request, pk):
 @login_required
 @require_POST
 @check_user_role(allowed_roles=['Administrador'])
-
 def lote_create(request, producto_pk):
     producto = get_object_or_404(Producto, pk=producto_pk)
     form = LoteForm(request.POST)
@@ -468,7 +566,6 @@ def lote_create(request, producto_pk):
 @never_cache
 @login_required
 @check_user_role(allowed_roles=['Administrador'])
-
 def lote_update(request, pk):
     lote = get_object_or_404(Lote, pk=pk)
     if request.method == 'POST':
@@ -485,7 +582,6 @@ def lote_update(request, pk):
 @login_required
 @require_POST
 @check_user_role(allowed_roles=['Administrador'])
-
 def lote_delete(request, pk):
     lote = get_object_or_404(Lote, pk=pk)
     producto_pk = lote.producto.pk

@@ -203,14 +203,15 @@ class Lote(models.Model):
 
 # --- Other Unmanaged Models ---
 class Venta(models.Model):
-    fecha_venta = models.DateTimeField()
+    fecha_venta = models.DateTimeField(default=timezone.now)
     metodo_pago = models.CharField(max_length=25)
     canal_venta = models.CharField(max_length=20)
-    cliente = models.ForeignKey(Cliente, models.DO_NOTHING)
-    usuario = models.ForeignKey(Usuario, models.DO_NOTHING)
+    cliente = models.ForeignKey(Cliente, models.SET_NULL, null=True, blank=True)
+    usuario = models.ForeignKey(Usuario, models.SET_NULL, null=True)
+    total_venta = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'venta'
 
 class VentaDetalle(models.Model):

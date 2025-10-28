@@ -56,7 +56,7 @@ urlpatterns = [
     path('lotes/eliminar/<int:pk>/', views.lote_delete, name='lote_delete'),
 
     # Se mantienen otras rutas por si son necesarias en el futuro, pero se pueden limpiar.
-    # path('venta/', views.pos_view, name='pos_view'),
+    path('venta/', views.pos_view, name='pos_view'),
     path('reportes/', views.reportes_home, name='reportes_home'),
     path('clientes/', views.cliente_list, name='cliente_list'),
     # Reabastecimiento
@@ -65,5 +65,5 @@ urlpatterns = [
     path('reabastecimientos/<int:pk>/editar/', views.reabastecimiento_editar, name='reabastecimiento_editar'),
     path('reabastecimientos/<int:pk>/actualizar/', views.reabastecimiento_update, name='reabastecimiento_update'),
     path('reabastecimientos/<int:pk>/eliminar/', views.reabastecimiento_eliminar, name='reabastecimiento_eliminar'),
-    path('reabastecimientos/<int:pk>/recibir/', views.reabastecimiento_recibir, name='reabastecimiento_recibir'),
+    path('ventas/procesar/', views.procesar_venta, name='procesar_venta'),
 ]

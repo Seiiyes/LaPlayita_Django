@@ -8,12 +8,14 @@
 
 <div class="row g-4">
     <div class="col-md-3">
-        <div class="card text-center bg-primary text-white">
-            <div class="card-body">
-                <i class="bi bi-currency-dollar display-4"></i>
-                <h5 class="card-title mt-2">Ingresos Hoy</h5>
-                <p class="card-text display-6">${{ ingresos_hoy|floatformat:2 }}</p>
-            </div>
+        <div class="card text-center bg-success text-white h-100">
+            <a href="{% url 'pos_view' %}" class="text-decoration-none text-white d-flex flex-column justify-content-center">
+                <div class="card-body">
+                    <i class="bi bi-cash-register display-4"></i>
+                    <h5 class="card-title mt-2">Punto de Venta</h5>
+                    <p class="card-text">Iniciar nueva venta</p>
+                </div>
+            </a>
         </div>
     </div>
     
