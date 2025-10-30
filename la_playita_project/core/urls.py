@@ -43,6 +43,7 @@ urlpatterns = [
     path('inventario/crear/', views.producto_create, name='producto_create'),
     path('inventario/ajax/crear/', views.producto_create_ajax, name='producto_create_ajax'),
     path('inventario/producto/<int:pk>/json/', views.producto_detail_json, name='producto_detail_json'),
+    path('inventario/producto/<int:pk>/lotes/json/', views.producto_lotes_json, name='producto_lotes_json'),
     path('inventario/categoria/add/', views.categoria_create, name='categoria_create'),
     path('inventario/editar/<int:pk>/', views.producto_update, name='producto_update'),
     path('inventario/eliminar/<int:pk>/', views.producto_delete, name='producto_delete'),
@@ -52,6 +53,7 @@ urlpatterns = [
     # ----------------------------------------------
     path('inventario/producto/<int:producto_pk>/lotes/', views.lote_list, name='lote_list'),
     path('inventario/producto/<int:producto_pk>/lotes/crear/', views.lote_create, name='lote_create'),
+    path('inventario/producto/<int:producto_pk>/lotes/crear/form/', views.lote_create_form_ajax, name='lote_create_form_ajax'),
     path('lotes/editar/<int:pk>/', views.lote_update, name='lote_update'),
     path('lotes/eliminar/<int:pk>/', views.lote_delete, name='lote_delete'),
 
@@ -65,5 +67,6 @@ urlpatterns = [
     path('reabastecimientos/<int:pk>/editar/', views.reabastecimiento_editar, name='reabastecimiento_editar'),
     path('reabastecimientos/<int:pk>/actualizar/', views.reabastecimiento_update, name='reabastecimiento_update'),
     path('reabastecimientos/<int:pk>/eliminar/', views.reabastecimiento_eliminar, name='reabastecimiento_eliminar'),
+    path('reabastecimientos/<int:pk>/recibir/', views.reabastecimiento_recibir, name='reabastecimiento_recibir'),
     path('ventas/procesar/', views.procesar_venta, name='procesar_venta'),
 ]

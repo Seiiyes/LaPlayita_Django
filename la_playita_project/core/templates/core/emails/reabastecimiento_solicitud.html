@@ -1,0 +1,83 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solicitud de Reabastecimiento - La Playita</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .header img {
+            max-width: 150px;
+            height: auto;
+        }
+        .content {
+            padding: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 0.9em;
+            color: #777;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        ul li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="{% static 'core/img/la-playita-logo.png' %}" alt="La Playita Logo">
+            <h1>Solicitud de Reabastecimiento</h1>
+        </div>
+        <div class="content">
+            <p>Estimado/a {{ proveedor_nombre }},</p>
+            <p>Le informamos que se ha generado una nueva solicitud de reabastecimiento por parte de La Playita.</p>
+            <p>A continuación, se detallan los pormenores de la solicitud:</p>
+            <ul>
+                <li><strong>ID de Reabastecimiento:</strong> {{ reabastecimiento.id }}</li>
+                <li><strong>Fecha de Solicitud:</strong> {{ reabastecimiento.fecha|date:"d/m/Y H:i" }}</li>
+                <li><strong>Observaciones:</strong> {{ reabastecimiento.observaciones|default:"N/A" }}</li>
+            </ul>
+            <p><strong>Productos solicitados:</strong></p>
+            <ul>
+                {% for detalle in reabastecimiento.reabastecimientodetalle_set.all %}
+                    <li>{{ detalle.producto.nombre }}: {{ detalle.cantidad }} unidades</li>
+                {% endfor %}
+            </ul>
+            <p>Agradecemos su pronta atención a esta solicitud.</p>
+            <p>Saludos cordiales,</p>
+            <p>El equipo de La Playita</p>
+        </div>
+        <div class="footer">
+            <p>&copy; {{ current_year }} La Playita. Todos los derechos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>

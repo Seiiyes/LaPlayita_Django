@@ -1,4 +1,5 @@
 {% extends 'core/base.html' %}
+{% load tz %}
 {% load static %}
 {% load humanize %}
 {% load auth_extras %}
@@ -38,7 +39,7 @@
                                             data-bs-toggle="collapse" data-bs-target="#detalleReabastecimiento{{ r.id }}" 
                                             aria-expanded="false" aria-controls="detalleReabastecimiento{{ r.id }}">
                                         <i class="fas fa-chevron-down me-1"></i>
-                                        {{ r.fecha|date:"d/m/Y H:i" }}
+                                        {{ r.fecha|localtime|date:"d/m/Y H:i" }}
                                     </button>
                                 </td>
                                 <td>{{ r.proveedor.nombre_empresa }}</td>
@@ -721,6 +722,18 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    function formatLocalDate(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        return date.toLocaleString('es-CL', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
     const FORMSET_PREFIX = '{{ formset.prefix }}';
     const PRODUCTS_DATA = JSON.parse('{{ products_json|default:'[]'|escapejs }}');
     const productos = JSON.parse('{{ all_products_json|default:'[]'|escapejs }}');
@@ -757,12 +770,26 @@ document.addEventListener('DOMContentLoaded', function () {
             modal.show();
         } catch (error) {
             console.error('Error:', error);
-            alert('Error al intentar editar el reabastecimiento');
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: 'Error al intentar editar el reabastecimiento'
+            });
         }
     }
 
     window.recibirReabastecimiento = async function(id) {
-        if (!confirm('¿Estás seguro de que deseas marcar este reabastecimiento como recibido? El stock de los productos se actualizará.')) {
+        const result = await Swal.fire({
+            title: '¿Estás seguro?',
+            text: "El stock de los productos se actualizará.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, marcar como recibido'
+        });
+
+        if (!result.isConfirmed) {
             return;
         }
 
@@ -788,16 +815,46 @@ document.addEventListener('DOMContentLoaded', function () {
             const button = row.querySelector('.btn-success');
             button.disabled = true;
 
-            alert(data.message);
+            const detailRow = document.querySelector(`#detalleReabastecimiento${id}`);
+            if (detailRow) {
+                const statusBadges = detailRow.querySelectorAll('.badge.bg-secondary');
+                statusBadges.forEach(badge => {
+                    if (badge.textContent === 'No recibido') {
+                        badge.classList.remove('bg-secondary');
+                        badge.classList.add('bg-success');
+                        badge.textContent = 'Completo';
+                    }
+                });
+            }
+
+            Swal.fire({
+                icon: 'success',
+                title: '¡Éxito!',
+                text: data.message
+            });
 
         } catch (error) {
             console.error('Error:', error);
-            alert(error.message);
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: error.message
+            });
         }
     }
 
     window.eliminarReabastecimiento = async function(id) {
-        if (!confirm('¿Estás seguro de que deseas eliminar este reabastecimiento?')) {
+        const result = await Swal.fire({
+            title: '¿Estás seguro?',
+            text: "¡No podrás revertir esto!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, eliminarlo'
+        });
+
+        if (!result.isConfirmed) {
             return;
         }
 
@@ -822,7 +879,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         } catch (error) {
             console.error('Error:', error);
-            alert(error.message);
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: error.message
+            });
         }
     }
 
@@ -855,7 +916,11 @@ document.addEventListener('DOMContentLoaded', function () {
             return categoria;
         } catch (error) {
             console.error('Error:', error);
-            alert('Error al guardar la categoría');
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: 'Error al guardar la categoría'
+            });
         }
     }
 
@@ -885,7 +950,11 @@ document.addEventListener('DOMContentLoaded', function () {
             return proveedor;
         } catch (error) {
             console.error('Error:', error);
-            alert(error.message || 'Error al guardar el proveedor');
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: error.message || 'Error al guardar el proveedor'
+            });
         }
     }
 
@@ -918,7 +987,11 @@ document.addEventListener('DOMContentLoaded', function () {
             return producto;
         } catch (error) {
             console.error('Error:', error);
-            alert(error.message || 'Error al guardar el producto');
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: error.message || 'Error al guardar el producto'
+            });
         }
     }
 
@@ -1065,13 +1138,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const newRow = document.createElement('tr');
             newRow.className = 'align-middle';
+            newRow.id = `reabastecimiento-${reab.id}`;
             newRow.innerHTML = `
                 <td>
                     <button class="btn btn-link text-decoration-none p-0 text-dark fw-bold" type="button"
                             data-bs-toggle="collapse" data-bs-target="#detalleReabastecimiento${reab.id}"
                             aria-expanded="false" aria-controls="detalleReabastecimiento${reab.id}">
                         <i class="fas fa-chevron-down me-1"></i>
-                        ${reab.fecha}
+                        ${formatLocalDate(reab.fecha)}
                     </button>
                 </td>
                 <td>${reab.proveedor}</td>
@@ -1148,9 +1222,11 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('addDetalleBtn').click();
 
         } catch (error) {
-            console.error('Error:', error);
-            alert(error.message);
-            // Rethrow the error so the finally block in the event listener knows there was a problem.
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: error.message
+            });
             throw error;
         }
     }
@@ -1232,7 +1308,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         } catch (error) {
             console.error('Error:', error);
-            alert(error.message);
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: error.message
+            });
         }
     });
 

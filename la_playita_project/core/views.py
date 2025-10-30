@@ -11,6 +11,9 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.core.mail import EmailMultiAlternatives
+from datetime import datetime
 from django.utils import timezone
 
 from .models import Producto, Lote, Categoria, MovimientoInventario, Cliente, Venta, VentaDetalle
@@ -27,33 +30,82 @@ def send_supply_request_email(reabastecimiento):
     if proveedor.correo:
         subject = f'Solicitud de Reabastecimiento #{reabastecimiento.id}'
         
-        message = f"""
-        Hola {proveedor.nombre_empresa},
 
-        Se ha generado una nueva solicitud de reabastecimiento.
+        context = {
 
-        Detalles:
-        ID de Reabastecimiento: {reabastecimiento.id}
-        Fecha de Solicitud: {reabastecimiento.fecha.strftime('%d/%m/%Y %H:%M')}
-        Observaciones: {reabastecimiento.observaciones or 'N/A'}
+            'reabastecimiento': reabastecimiento,
 
-        Productos solicitados:
-        """
-        
-        for detalle in reabastecimiento.reabastecimientodetalle_set.all():
-            message += f"- {detalle.producto.nombre}: {detalle.cantidad} unidades\n"
-            
-        message += "\nGracias,\nEl equipo de La Playita."
+            'proveedor_nombre': proveedor.nombre_empresa,
 
-        # TODO: Configure EMAIL_HOST_USER in settings.py
-        send_mail(
-            subject,
-            message,
-            'no-reply@laplayita.com', 
-            [proveedor.correo],
-            fail_silently=False,
+            'current_year': datetime.now().year,
+
+        }
+
+
+
+        html_content = render_to_string('core/emails/reabastecimiento_solicitud.html', context)
+
+
+
+        text_content = (
+
+            f"Estimado/a {proveedor.nombre_empresa},\n\n"
+
+            f"Le informamos que se ha generado una nueva solicitud de reabastecimiento por parte de La Playita.\n\n"
+
+            f"A continuación, se detallan los pormenores de la solicitud:\n"
+
+            f"ID de Reabastecimiento: {reabastecimiento.id}\n"
+
+            f"Fecha de Solicitud: {reabastecimiento.fecha.strftime('%d/%m/%Y %H:%M')}\n"
+
+            f"Observaciones: {reabastecimiento.observaciones or 'N/A'}\n\n"
+
+            f"Productos solicitados:\n"
+
         )
 
+
+
+        for detalle in reabastecimiento.reabastecimientodetalle_set.all():
+
+            text_content += f"- {detalle.producto.nombre}: {detalle.cantidad} unidades\n"
+
+
+
+        text_content += "\n"
+
+        text_content += "Agradecemos su pronta atención a esta solicitud.\n"
+
+        text_content += "Saludos cordiales,\n"
+
+        text_content += "El equipo de La Playita\n\n"
+
+        text_content += f"© {datetime.now().year} La Playita. Todos los derechos reservados."
+
+
+
+        # TODO: Configure EMAIL_HOST_USER in settings.py
+
+        msg = EmailMultiAlternatives(subject, text_content, None, [proveedor.correo])
+
+        msg.attach_alternative(html_content, "text/html")
+
+        msg.send()
+
+        # The following lines seem to be a duplicate/incorrect way of sending email.
+
+        # I'm commenting them out as they are likely causing issues or are redundant.
+
+        # message,
+
+        # 'no-reply@laplayita.com',
+
+        # [proveedor.correo],
+
+        # fail_silently=False,
+
+        # )
 class CustomLoginView(LoginView):
     template_name = 'registration/login.html'
 
@@ -225,39 +277,106 @@ def procesar_venta(request):
 @login_required
 @check_user_role(allowed_roles=['Administrador', 'Vendedor'])
 def inventario_list(request):
-    today = date.today()
-
-    # Subconsulta para obtener el código del lote MÁS RECIENTE con stock
-    recent_lot_subquery = Lote.objects.filter(
-        producto=models.OuterRef('pk'),
-        cantidad_disponible__gt=0
-    ).order_by('-fecha_entrada').values('numero_lote')[:1]
-
-    # Subconsulta para obtener el proveedor del lote MÁS RECIENTE
-    recent_lot_supplier_subquery = Lote.objects.filter(
-        producto=models.OuterRef('pk'),
-        cantidad_disponible__gt=0
-    ).order_by('-fecha_entrada').values('reabastecimiento_detalle__reabastecimiento__proveedor__nombre_empresa')[:1]
-
-    # Anotamos los productos con la información de los lotes
-    productos = Producto.objects.annotate(
-        vencimiento_proximo=models.Min('lote__fecha_caducidad', filter=models.Q(lote__cantidad_disponible__gt=0)),
-        lote_mas_reciente=models.Subquery(recent_lot_subquery),
-        proveedor_lote_mas_reciente=models.Subquery(recent_lot_supplier_subquery)
-    ).select_related('categoria').all()
-
+    productos = Producto.objects.select_related('categoria').order_by('nombre')
+    
     form = ProductoForm()
     categoria_form = CategoriaForm()
-    
+    lote_form = LoteForm()
+
     context = {
         'productos': productos,
         'form': form,
         'categoria_form': categoria_form,
-        'today': today,
+        'lote_form': lote_form,
         'alert_days_yellow': 60,
         'alert_days_red': 30,
     }
     return render(request, 'core/inventario_list.html', context)
+
+@login_required
+def producto_lotes_json(request, pk):
+    producto = get_object_or_404(Producto, pk=pk)
+    
+    # CORRECCIÓN DE ORM: La relación a proveedor no es directa.
+    # El camino correcto es a través de reabastecimiento_detalle y reabastecimiento:
+    lotes = Lote.objects.filter(producto=producto).select_related(
+        'reabastecimiento_detalle',
+        'reabastecimiento_detalle__reabastecimiento',
+        'reabastecimiento_detalle__reabastecimiento__proveedor'
+    ).order_by('-fecha_entrada')
+    
+    movimientos = MovimientoInventario.objects.filter(producto=producto).order_by('-fecha_movimiento')
+
+    lotes_data = []
+    for lote in lotes:
+        # Lógica para obtener el nombre del proveedor de forma segura
+        proveedor_nombre = 'N/A'
+        if lote.reabastecimiento_detalle and \
+           lote.reabastecimiento_detalle.reabastecimiento and \
+           lote.reabastecimiento_detalle.reabastecimiento.proveedor:
+            proveedor_nombre = lote.reabastecimiento_detalle.reabastecimiento.proveedor.nombre_empresa
+
+        # Lógica de fechas segura (para evitar fallos de strftime en None)
+        fecha_caducidad_str = 'N/A'
+        if lote.fecha_caducidad:
+             try:
+                 fecha_caducidad_str = lote.fecha_caducidad.strftime('%Y-%m-%d')
+             except AttributeError:
+                 fecha_caducidad_str = lote.fecha_caducidad.isoformat()
+        
+        fecha_entrada_str = 'N/A'
+        if lote.fecha_entrada:
+             fecha_entrada_str = timezone.localtime(lote.fecha_entrada).strftime('%d/%m/%Y %H:%M')
+
+        lotes_data.append({
+            'id': lote.id,
+            'numero_lote': lote.numero_lote,
+            'cantidad_disponible': lote.cantidad_disponible,
+            # Asegura un valor float válido (0.0) si es None
+            'costo_unitario_lote': float(lote.costo_unitario_lote) if lote.costo_unitario_lote is not None else 0.0,
+            'fecha_caducidad': fecha_caducidad_str, 
+            'fecha_entrada': fecha_entrada_str,
+            'proveedor': proveedor_nombre, # Se usa el nombre de proveedor seguro
+        })
+
+    movimientos_data = [{
+        # Asegura que la fecha de movimiento no sea nula antes de formatear
+        'fecha_movimiento': timezone.localtime(m.fecha_movimiento).strftime('%d/%m/%Y %H:%M') if m.fecha_movimiento else 'N/A',
+        'tipo_movimiento': m.tipo_movimiento,
+        'cantidad': m.cantidad,
+        'descripcion': m.descripcion or '', # Asegura una cadena vacía si es NULL
+    } for m in movimientos]
+
+    # Lógica para el último proveedor (también debe usar el camino correcto)
+    ultimo_proveedor = 'N/A'
+    if lotes.exists():
+        primer_lote = lotes.first()
+        if primer_lote.reabastecimiento_detalle and primer_lote.reabastecimiento_detalle.reabastecimiento and primer_lote.reabastecimiento_detalle.reabastecimiento.proveedor:
+            ultimo_proveedor = primer_lote.reabastecimiento_detalle.reabastecimiento.proveedor.nombre_empresa
+
+    data = {
+        'id': producto.pk,
+        'nombre': producto.nombre,
+        'descripcion': producto.descripcion or '', # Asegura una cadena vacía si es NULL
+        # Asegura un float válido para precio_unitario si es None
+        'precio_unitario': float(producto.precio_unitario) if producto.precio_unitario is not None else 0.0,
+        'stock_actual': producto.stock_actual,
+        'stock_minimo': producto.stock_minimo,
+        # Maneja la relación Categoria si por alguna razón fuera None
+        'categoria': producto.categoria.nombre if producto.categoria else 'N/A',
+        'lotes': lotes_data,
+        'movimientos': movimientos_data,
+        'ultimo_proveedor': ultimo_proveedor,
+        'costo_promedio': float(producto.costo_promedio) if producto.costo_promedio is not None else 0.0,
+    }
+    return JsonResponse(data)
+
+@login_required
+def lote_create_form_ajax(request, producto_pk):
+    producto = get_object_or_404(Producto, pk=producto_pk)
+    form = LoteForm(initial={'producto': producto})
+    return render(request, 'core/_lote_form.html', {'form': form, 'producto': producto})
+
 
 @never_cache
 @login_required
@@ -291,13 +410,15 @@ def producto_create(request):
 def producto_detail_json(request, pk):
     """
     Devuelve los detalles de un producto en formato JSON para la edición en modal.
+    (Aplicamos correcciones de nulabilidad aquí también para consistencia)
     """
     producto = get_object_or_404(Producto, pk=pk)
     data = {
         'id': producto.pk,
         'nombre': producto.nombre,
-        'precio_unitario': str(producto.precio_unitario),
-        'descripcion': producto.descripcion,
+        # Corrección: Asegura que sea una cadena '0' o el valor si es None
+        'precio_unitario': str(producto.precio_unitario) if producto.precio_unitario is not None else '0',
+        'descripcion': producto.descripcion or '', # Corrección: Asegura una cadena vacía
         'stock_minimo': producto.stock_minimo,
         'categoria_id': producto.categoria_id,
     }
@@ -315,8 +436,8 @@ def producto_update(request, pk):
         return JsonResponse({
             'id': producto.pk,
             'nombre': producto.nombre,
-            'categoria_nombre': producto.categoria.nombre,
-            'precio_unitario': str(producto.precio_unitario),
+            'categoria_nombre': producto.categoria.nombre if producto.categoria else 'N/A', # Corrección: Manejo de categoria nula
+            'precio_unitario': str(producto.precio_unitario or 0),
             'stock_actual': producto.stock_actual,
             'stock_minimo': producto.stock_minimo,
         })
@@ -490,7 +611,7 @@ def reabastecimiento_create(request):
 
                     return JsonResponse({
                         'id': reab.id,
-                        'fecha': reab.fecha.strftime('%d/%m/%Y %H:%M'),
+                        'fecha': reab.fecha.isoformat(),
                         'proveedor': reab.proveedor.nombre_empresa,
                         'costo_total': float(reab.costo_total),
                         'forma_pago': reab.get_forma_pago_display(),
@@ -530,13 +651,23 @@ def reabastecimiento_recibir(request, pk):
                     return JsonResponse({'error': f'El producto {detalle.producto.nombre} no tiene fecha de caducidad.'}, status=400)
 
                 numero_lote = f"R{reab.pk}-P{detalle.producto.pk}-{detalle.pk}"
-                Lote.objects.create(
+                lote = Lote.objects.create(
                     producto=detalle.producto,
                     reabastecimiento_detalle=detalle,
                     numero_lote=numero_lote,
                     cantidad_disponible=detalle.cantidad,
                     costo_unitario_lote=detalle.costo_unitario,
                     fecha_caducidad=detalle.fecha_caducidad
+                )
+                
+                MovimientoInventario.objects.create(
+                    producto=lote.producto,
+                    lote=lote,
+                    cantidad=lote.cantidad_disponible,
+                    tipo_movimiento='entrada',
+                    fecha_movimiento=timezone.now(),
+                    descripcion=f'Entrada por reabastecimiento #{reab.pk}',
+                    reabastecimiento_id=reab.pk
                 )
             
             return JsonResponse({'message': 'Reabastecimiento marcado como recibido y stock actualizado.', 'estado': reab.get_estado_display()})
@@ -556,12 +687,26 @@ def lote_create(request, producto_pk):
         lote = form.save(commit=False)
         lote.producto = producto
         lote.save()
-        messages.success(request, 'Lote registrado exitosamente.')
+        # Create inventory movement
+        MovimientoInventario.objects.create(
+            producto=lote.producto,
+            lote=lote,
+            cantidad=lote.cantidad_disponible,
+            tipo_movimiento='entrada_manual',
+            fecha_movimiento=timezone.now(),
+            descripcion=f'Entrada manual de lote para {producto.nombre}',
+        )
+        return JsonResponse({
+            'id': lote.id,
+            'numero_lote': lote.numero_lote,
+            'cantidad_disponible': lote.cantidad_disponible,
+            'costo_unitario_lote': f"{lote.costo_unitario_lote:,.2f}",
+            'fecha_caducidad': lote.fecha_caducidad.strftime('%d/%m/%Y') if lote.fecha_caducidad else '-',
+            'fecha_entrada': timezone.localtime(lote.fecha_entrada).strftime('%d/%m/%Y %H:%M'),
+            'proveedor': lote.proveedor.nombre_empresa if lote.proveedor else 'N/A', # Corrección: Manejo de proveedor nulo
+        })
     else:
-        for field, errors in form.errors.items():
-            for error in errors:
-                messages.error(request, f"{form.fields[field].label}: {error}")
-    return redirect('lote_list', producto_pk=producto.pk)
+        return JsonResponse({'errors': form.errors}, status=400)
 
 @never_cache
 @login_required
@@ -571,12 +716,27 @@ def lote_update(request, pk):
     if request.method == 'POST':
         form = LoteForm(request.POST, instance=lote)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Lote actualizado exitosamente.')
-            return redirect('lote_list', producto_pk=lote.producto.pk)
+            lote = form.save()
+            return JsonResponse({
+                'id': lote.id,
+                'numero_lote': lote.numero_lote,
+                'cantidad_disponible': lote.cantidad_disponible,
+                'costo_unitario_lote': f"{lote.costo_unitario_lote:,.2f}",
+                'fecha_caducidad': lote.fecha_caducidad.strftime('%d/%m/%Y') if lote.fecha_caducidad else '-',
+                'fecha_entrada': timezone.localtime(lote.fecha_entrada).strftime('%d/%m/%Y %H:%M'),
+                'proveedor': lote.proveedor.nombre_empresa if lote.proveedor else 'N/A',
+            })
+        else:
+            return JsonResponse({'errors': form.errors}, status=400)
     else:
-        form = LoteForm(instance=lote)
-    return render(request, 'core/lote_form.html', {'form': form, 'lote': lote})
+        data = {
+            'id': lote.id,
+            'numero_lote': lote.numero_lote,
+            'cantidad_disponible': lote.cantidad_disponible,
+            'costo_unitario_lote': lote.costo_unitario_lote,
+            'fecha_caducidad': lote.fecha_caducidad.isoformat() if lote.fecha_caducidad else None,
+        }
+        return JsonResponse(data)
 
 @never_cache
 @login_required
@@ -584,10 +744,8 @@ def lote_update(request, pk):
 @check_user_role(allowed_roles=['Administrador'])
 def lote_delete(request, pk):
     lote = get_object_or_404(Lote, pk=pk)
-    producto_pk = lote.producto.pk
     lote.delete()
-    messages.success(request, 'Lote eliminado exitosamente.')
-    return redirect('lote_list', producto_pk=producto_pk)
+    return JsonResponse({'message': 'Lote eliminado exitosamente.'})
 
 @never_cache
 @login_required
@@ -694,7 +852,7 @@ def reabastecimiento_update(request, pk):
 
                 return JsonResponse({
                     'id': reab_instance.id,
-                    'fecha': reab_instance.fecha.strftime('%d/%m/%Y %H:%M'),
+                    'fecha': reab_instance.fecha.isoformat(),
                     'proveedor': reab_instance.proveedor.nombre_empresa,
                     'costo_total': float(reab_instance.costo_total),
                     'forma_pago': reab_instance.get_forma_pago_display(),
@@ -821,7 +979,7 @@ def producto_create_ajax(request):
         return JsonResponse({
             'id': producto.id,
             'nombre': producto.nombre,
-            'precio_unitario': float(producto.precio_unitario)
+            'precio_unitario': float(producto.precio_unitario or 0)
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)

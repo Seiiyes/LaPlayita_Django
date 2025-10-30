@@ -1,270 +1,456 @@
 {% extends 'core/base.html' %}
-{% load auth_extras %}
 {% load static %}
 {% load humanize %}
+{% load auth_extras %}
 {% load currency_format %}
 
 {% block title %}Inventario de Productos{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <!-- Alertas de Mensajes -->
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="mb-0">Inventario de Productos</h1>
-        <div>
-            {% if user|has_role:'Administrador' or user|has_role:'Vendedor' %}
-                <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#createProductModal">
-                    <i class="bi bi-plus-lg me-2"></i>Crear Producto
-                </button>
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Producto</th>
-                            <th>Categoría</th>
-                            <th>Precio Unitario</th>
-                            <th>Stock Actual</th>
-                            <th>Stock Mínimo</th>
-                            <th class="text-center">Lote Más Reciente</th>
-                            <th class="text-center">Proveedor Lote Reciente</th>
-                            <th class="text-center">Vencimiento Próximo</th>
-                            <th class="text-center">Estado</th>
-                            <th class="text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+<div class="container-lg mt-4">
+    <div class="row g-3"> <!-- Usar g-3 para espaciado en la fila -->
+        <!-- Product List (3 Columnas en pantallas grandes) -->
+        <div class="col-lg-3 col-md-4">
+            <div class="card" style="height: 85vh;">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Productos</h5>
+                    {% if user|has_role:"Administrador" %}
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#productModal" data-action="new">
+                        <i class="bi bi-plus-lg"></i> Nuevo
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <!-- Búsqueda/Filtro -->
+                    <input type="text" id="product-search" class="form-control mb-3" placeholder="Buscar producto...">
+                    <div class="list-group flex-grow-1" id="product-list" style="overflow-y: auto;">
                         {% for producto in productos %}
-                            {% with stock_warning_level=producto.stock_minimo|add:5 %}
-                            <tr id="product-row-{{ producto.pk }}" 
-                                {% if producto.stock_actual <= producto.stock_minimo %} class="table-danger" 
-                                {% elif producto.stock_actual <= stock_warning_level %} class="table-warning" {% endif %}>
-                                <td class="product-nombre"><strong>{{ producto.nombre }}</strong></td>
-                                <td class="product-categoria">{{ producto.categoria.nombre }}</td>
-                                <td class="product-precio">{{ producto.precio_unitario|currency }}</td>
-                                <td class="product-stock-actual">{{ producto.stock_actual|default:0|intcomma }}</td>
-                                <td class="product-stock-minimo">{{ producto.stock_minimo|intcomma }}</td>
-                                <td class="text-center">{{ producto.lote_mas_reciente|default:"-" }}</td>
-                                <td class="text-center">{{ producto.proveedor_lote_mas_reciente|default:"-" }}</td>
-                                <td class="text-center">
-                                    {% if producto.vencimiento_proximo %}
-                                        {% with days_to_expire=producto.vencimiento_proximo|days_until %}
-                                            {% if days_to_expire is not None %}
-                                                {% if days_to_expire <= alert_days_red %}
-                                                    <span class="badge bg-danger">{{ producto.vencimiento_proximo|date:"d/m/Y" }}</span>
-                                                {% elif days_to_expire <= alert_days_yellow %}
-                                                    <span class="badge bg-warning text-dark">{{ producto.vencimiento_proximo|date:"d/m/Y" }}</span>
-                                                {% else %}
-                                                    {{ producto.vencimiento_proximo|date:"d/m/Y" }}
-                                                {% endif %}
-                                            {% else %}
-                                                -
-                                            {% endif %}
-                                        {% endwith %}
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-                                <td class="text-center product-estado">
-                                    {% if producto.stock_actual <= producto.stock_minimo %}
-                                        <span class="badge bg-danger">Bajo Stock</span>
-                                    {% elif producto.stock_actual <= stock_warning_level %}
-                                        <span class="badge bg-warning text-dark">Próximo a Agotarse</span>
-                                    {% else %}
-                                        <span class="badge bg-success">En Stock</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-center">
-                                    {% if user|has_role:'Administrador' %}
-                                        <a href="{% url 'lote_list' producto.pk %}" class="btn btn-sm btn-info" data-bs-toggle="tooltip" title="Ver Lotes">
-                                            <i class="bi bi-box-seam"></i>
-                                        </a>
-                                    {% endif %}
-                                    {% if user|has_role:'Administrador' or user|has_role:'Vendedor' %}
-                                        <button type="button" class="btn btn-sm btn-warning edit-product-btn" data-product-id="{{ producto.pk }}" data-bs-toggle="tooltip" title="Editar Producto">
-                                            <i class="bi bi-pencil-square"></i>
-                                        </button>
-                                    {% endif %}
-                                    {% if user|has_role:'Administrador' %}
-                                        <form action="{% url 'producto_delete' producto.pk %}" method="post" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este producto?');">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-danger" data-bs-toggle="tooltip" title="Eliminar Producto">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </form>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endwith %}
-                        {% empty %}
-                            <tr>
-                                <td colspan="10" class="text-center">No hay productos registrados.</td>
-                            </tr>
+                        <!-- Añadido data-stock-min y data-stock-actual para JS de alerta -->
+                        <a href="#" class="list-group-item list-group-item-action product-item"
+                           data-product-id="{{ producto.pk }}" 
+                           data-stock-actual="{{ producto.stock_actual }}"
+                           data-stock-minimo="{{ producto.stock_minimo }}">
+                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                <h6 class="mb-1">{{ producto.nombre }}</h6>
+                                <!-- El badge será coloreado por JS para alertas visuales -->
+                                <span class="badge rounded-pill bg-secondary stock-badge-{{ producto.pk }}">{{ producto.stock_actual|default:0|intcomma }}</span>
+                            </div>
+                            <small class="text-muted">{{ producto.categoria.nombre }}</small>
+                        </a>
                         {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Crear Producto -->
-<div class="modal fade" id="createProductModal" tabindex="-1" aria-labelledby="createProductModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form action="{% url 'producto_create' %}" method="post">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="createProductModalLabel">Crear Nuevo Producto</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    {% include 'core/producto_form_fields.html' with form=form %}
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Producto</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Editar Producto -->
-<div class="modal fade" id="editProductModal" tabindex="-1" aria-labelledby="editProductModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form id="editProductForm" method="post">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editProductModalLabel">Editar Producto</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="editProductId">
-                    {% csrf_token %}
-                    {% include 'core/producto_form_fields.html' with form=form %}
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Crear Categoría -->
-<div class="modal fade" id="createCategoryModal" tabindex="-1" aria-labelledby="createCategoryModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-            <form action="{% url 'categoria_create' %}" method="post">
-                {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title" id="createCategoryModalLabel">Crear Nueva Categoría</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="id_nombre_categoria" class="form-label">{{ categoria_form.nombre.label }}</label>
-                        {{ categoria_form.nombre }}
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Categoría</button>
+            </div>
+        </div>
+
+        <!-- Product Details (9 Columnas en pantallas grandes) -->
+        <div class="col-lg-9 col-md-8">
+            <div id="product-details-container" class="card" style="height: 85vh;">
+                <!-- Contenido por defecto -->
+                <div class="card-body d-flex justify-content-center align-items-center">
+                    <div class="text-center">
+                        <i class="bi bi-box-seam" style="font-size: 6rem; color: #e0e0e0;"></i>
+                        <h4 class="mt-3 text-muted">Seleccione un producto para ver los detalles</h4>
+                        <p class="text-muted">Aquí podrá ver el stock, los precios y los lotes asociados.</p>
+                    </div>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Product Modal (for New and Edit) - Se asume que este modal contiene el formulario -->
+<div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productModalLabel"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="productForm" method="post" novalidate>
+                    {% csrf_token %}
+                    <!-- Se asume que core/producto_form_fields.html contiene los campos del formulario -->
+                    {% include 'core/producto_form_fields.html' with form=form %}
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="saveProduct" class="btn btn-primary">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
+<!-- Se asume que 'Swal' de SweetAlert ya está incluido en 'core/base.html' o similar. -->
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    // Inicializar todos los tooltips de Bootstrap
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-      return new bootstrap.Tooltip(tooltipTriggerEl)
-    });
-
-    const editProductModal = new bootstrap.Modal(document.getElementById('editProductModal'));
-    const editForm = document.getElementById('editProductForm');
-
-    document.querySelectorAll('.edit-product-btn').forEach(button => {
-        button.addEventListener('click', async function() {
-            const productId = this.dataset.productId;
+    // Función para aplicar estilos de stock al badge
+    function applyStockStyles() {
+        document.querySelectorAll('.product-item').forEach(item => {
+            const stockActual = parseInt(item.dataset.stockActual);
+            const stockMinimo = parseInt(item.dataset.stockMinimo);
+            const badge = item.querySelector('.badge');
             
-            // Fetch product data
-            const response = await fetch(`/inventario/producto/${productId}/json/`);
-            if (!response.ok) {
-                alert('Error al cargar los datos del producto.');
+            if (!badge) return;
+
+            // Remueve clases existentes
+            badge.classList.remove('bg-primary', 'bg-warning', 'bg-danger', 'bg-success', 'bg-secondary');
+
+            if (stockActual <= 0) {
+                badge.classList.add('bg-danger');
+                badge.textContent = stockActual; // No necesita intcomma en JS a menos que se implemente
+            } else if (stockActual <= stockMinimo) {
+                badge.classList.add('bg-warning');
+            } else {
+                badge.classList.add('bg-primary'); // O 'bg-success' si prefiere verde
+            }
+        });
+    }
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Ejecutar al cargar la página para colorear los stocks iniciales
+        applyStockStyles();
+        
+        const productDetailsContainer = document.getElementById('product-details-container');
+        const productSearch = document.getElementById('product-search');
+        const productList = document.getElementById('product-list');
+        const productModal = new bootstrap.Modal(document.getElementById('productModal'));
+        const productForm = document.getElementById('productForm');
+
+        let currentProductId = null;
+
+        // Función de formato de moneda (simplificada)
+        const formatCurrency = (value) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value);
+        const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString('es-CO') : 'N/A';
+
+        async function loadProductDetails(productId) {
+            currentProductId = productId;
+            // Estado de carga
+            productDetailsContainer.innerHTML = `
+                <div class="card-body d-flex justify-content-center align-items-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>`;
+
+            try {
+                // La función del backend ya fue corregida para no lanzar error 500 por nulos
+                const response = await fetch(`/inventario/producto/${productId}/lotes/json/`);
+                
+                if (!response.ok) {
+                    // Manejo del Error 4xx/5xx (si el backend falla por otra razón o el 500 persiste)
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                renderProductDetails(data);
+                // Si la edición fue exitosa, actualizamos la lista con los nuevos datos
+                updateProductListItem(data);
+
+            } catch (error) {
+                console.error('Error loading product details:', error);
+                // Mostrar mensaje de error (mejorado con un icono de Bootstrap Icons)
+                productDetailsContainer.innerHTML = `
+                    <div class="card-body text-center">
+                        <i class="bi bi-wifi-off" style="font-size: 4rem; color: #dc3545;"></i>
+                        <h5 class="text-danger mt-3">Error al cargar los detalles.</h5>
+                        <p class="text-muted">Por favor, revise su conexión o intente de nuevo más tarde. (Detalle: ${error.message})</p>
+                    </div>`;
+                // Se asume que Swal.fire está disponible
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('Error', 'No se pudieron cargar los detalles del producto.', 'error');
+                }
+            }
+        }
+
+        // Nueva función para actualizar la lista de productos (después de una edición/creación)
+        function updateProductListItem(data) {
+            const item = document.querySelector(`.product-item[data-product-id="${data.id}"]`);
+            if (item) {
+                // Actualiza los valores internos
+                item.querySelector('h6').textContent = data.nombre;
+                item.querySelector('small').textContent = data.categoria;
+                item.dataset.stockActual = data.stock_actual;
+                item.dataset.stockMinimo = data.stock_minimo;
+                
+                // Actualiza el badge (la función aplica los estilos)
+                const badge = item.querySelector('.badge');
+                if (badge) badge.textContent = data.stock_actual;
+
+                // Re-aplica estilos
+                applyStockStyles();
+            } else {
+                // Si es un producto nuevo (no existe en la lista), fuerza un reload simple por simplicidad
+                // En un SPA real, aquí se inyectaría el nuevo <a> a la lista
+                // location.reload(); 
+            }
+        }
+
+        function renderProductDetails(data) {
+            const isLowStock = data.stock_actual <= data.stock_minimo;
+            const stockClass = isLowStock ? 'text-danger' : 'text-success';
+            const stockIcon = isLowStock ? '<i class="bi bi-exclamation-triangle-fill"></i>' : '<i class="bi bi-check-circle-fill"></i>';
+
+            let lotesHtml = `<p class="text-center text-muted mt-4">No hay lotes registrados para este producto.</p>`;
+            if (data.lotes && data.lotes.length > 0) {
+                lotesHtml = `
+                    <div class="table-responsive" style="max-height: 40vh; overflow-y: auto;">
+                        <table class="table table-sm table-hover table-striped">
+                            <thead class="table-light">
+                                <tr>
+                                    <th># Lote</th>
+                                    <th>Cant. Disp.</th> <!-- Cambio a Cant. Disp. -->
+                                    <th>Costo Unit.</th>
+                                    <th>Fecha Cad.</th>
+                                    <th>Proveedor</th> <!-- Agregado Proveedor -->
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.lotes.map(lote => `
+                                    <tr>
+                                        <td>${lote.numero_lote}</td>
+                                        <td>${lote.cantidad_disponible}</td>
+                                        <td>${formatCurrency(lote.costo_unitario_lote)}</td>
+                                        <td>${formatDate(lote.fecha_caducidad)}</td>
+                                        <td>${lote.proveedor}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>`;
+            }
+            const costoPromedioPonderado = data.costo_promedio;
+
+            let movimientosHtml = `<p class="text-center text-muted mt-4">No hay movimientos registrados para este producto.</p>`;
+            if (data.movimientos && data.movimientos.length > 0) {
+                movimientosHtml = `
+                    <div class="table-responsive" style="max-height: 40vh; overflow-y: auto;">
+                        <table class="table table-sm table-hover table-striped">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Cantidad</th>
+                                    <th>Descripción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.movimientos.map(m => `
+                                    <tr>
+                                        <td>${m.fecha_movimiento}</td>
+                                        <td>${m.tipo_movimiento}</td>
+                                        <td>${m.cantidad}</td>
+                                        <td>${m.descripcion}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>`;
+            }
+
+            productDetailsContainer.innerHTML = `
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">${data.nombre}</h4>
+                    {% if user|has_role:"Administrador" %}
+                    <div>
+                        <button class="btn btn-warning btn-sm edit-product-btn" data-product-id="${data.id}"><i class="bi bi-pencil"></i> Editar Producto</button>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <p class="text-muted mb-1"><strong>Categoría:</strong> ${data.categoria}</p>
+                            <p class="text-muted mb-1"><strong>Último Proveedor:</strong> ${data.ultimo_proveedor}</p>
+                            <p>${data.descripcion || ''}</p>
+                        </div>
+                    </div>
+
+                    <div class="row text-center g-3 mb-4">
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title text-muted">Precio de Venta</h6>
+                                    <p class="card-text fs-4 fw-bold text-success">${formatCurrency(data.precio_unitario)}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="text-muted">Stock Actual</h6>
+                                    <p class="mb-0 fs-4 fw-bold ${stockClass}">${stockIcon} ${data.stock_actual || 0}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="text-muted">Stock Mínimo</h6>
+                                    <p class="mb-0 fs-4">${data.stock_minimo || 0}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="text-muted">Costo Promedio</h6>
+                                    <p class="mb-0 fs-4">${formatCurrency(data.costo_promedio)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mt-4">Lotes del Producto</h5>
+                            </div>
+                            ${lotesHtml}
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="mt-4">Movimientos de Inventario</h5>
+                            ${movimientosHtml}
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        productDetailsContainer.addEventListener('click', function(e) {
+            const editProdBtn = e.target.closest('.edit-product-btn');
+            if (editProdBtn) {
+                openProductModal('edit', editProdBtn.dataset.productId);
                 return;
             }
-            const data = await response.json();
-
-            // Populate form
-            editForm.action = `/inventario/editar/${productId}/`;
-            editForm.querySelector('#id_nombre').value = data.nombre;
-            editForm.querySelector('#id_precio_unitario').value = parseInt(data.precio_unitario, 10);
-            editForm.querySelector('#id_descripcion').value = data.descripcion;
-            editForm.querySelector('#id_stock_minimo').value = data.stock_minimo;
-            editForm.querySelector('#id_categoria').value = data.categoria_id;
-
-            // Show modal
-            editProductModal.show();
         });
-    });
 
-    editForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const formData = new FormData(editForm);
-        const response = await fetch(editForm.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        async function openProductModal(action, productId = null) {
+            const modalTitle = document.getElementById('productModalLabel');
+            productForm.reset();
+            
+            // Asigna la acción y URL correcta
+            if (action === 'new') {
+                modalTitle.textContent = 'Nuevo Producto';
+                productForm.action = `{% url 'producto_create_ajax' %}`; // Usar AJAX para crear
+            } else if (action === 'edit' && productId) {
+                modalTitle.textContent = 'Editar Producto';
+                productForm.action = `/inventario/editar/${productId}/`; // Usar la URL de edición
+
+                try {
+                    // Obtiene los datos del producto
+                    const response = await fetch(`/inventario/producto/${productId}/json/`);
+                    if (!response.ok) throw new Error('Failed to fetch product data');
+                    const data = await response.json();
+                    
+                    // Rellena el formulario con los datos
+                    for (const key in data) {
+                        const field = productForm.querySelector(`[name=${key}]`);
+                        if (field) {
+                            if (field.type === 'checkbox') {
+                                field.checked = data[key];
+                            } else {
+                                field.value = data[key];
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error al cargar datos de edición:', error);
+                    Swal.fire('Error', 'No se pudieron cargar los datos del producto para editar.', 'error');
+                    return; // Detiene la apertura del modal si falla la carga
+                }
+            }
+            productModal.show();
+        }
+
+        document.getElementById('saveProduct').addEventListener('click', () => productForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+        
+        productForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(productForm);
+            const url = productForm.action;
+            const method = url.includes('/editar/') ? 'POST' : 'POST'; // Ambos son POST en Django
+
+            // Convertir FormData a JSON para la función AJAX de creación/edición
+            const dataJson = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch(url, { 
+                    method: method, 
+                    body: JSON.stringify(dataJson), 
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                });
+
+                const isUpdate = url.includes('/editar/');
+
+                if (response.ok) {
+                    const savedData = await response.json();
+                    productModal.hide();
+                    await Swal.fire('¡Éxito!', `Producto ${isUpdate ? 'actualizado' : 'creado'} correctamente.`, 'success');
+                    
+                    if (isUpdate) {
+                        // Recarga solo los detalles del producto editado (usando la función loadProductDetails que ya llama a /lotes/json/)
+                        loadProductDetails(savedData.id);
+                    } else {
+                        // Si es nuevo, recarga la página para que aparezca en el listado izquierdo y en el select de categoría.
+                        location.reload(); 
+                    }
+                }
+                else {
+                    const errorData = await response.json();
+                    // Lógica mejorada para mostrar errores de formulario
+                    let errorText = 'Error desconocido. Revise la consola.';
+                    if (errorData.errors) {
+                         // Asume que la respuesta JSON de Django (con errores de form) se maneja
+                         errorText = Object.entries(errorData.errors).map(([field, msgs]) => {
+                             return `**${field}:** ${msgs.join(', ')}`;
+                         }).join('<br>');
+                    } else if (errorData.error) {
+                        errorText = errorData.error;
+                    }
+                    Swal.fire('Error de Validación', errorText, 'error');
+                }
+            } catch (error) {
+                console.error(error);
+                Swal.fire('Error de Red', 'Ocurrió un error al intentar guardar el producto.', 'error');
             }
         });
 
-        if (response.ok) {
-            const updatedData = await response.json();
-            
-            // Update table row
-            const row = document.getElementById(`product-row-${updatedData.id}`);
-            row.querySelector('.product-nombre').innerHTML = `<strong>${updatedData.nombre}</strong>`;
-            row.querySelector('.product-categoria').textContent = updatedData.categoria_nombre;
-            row.querySelector('.product-precio').textContent = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(updatedData.precio_unitario);
-            row.querySelector('.product-stock-actual').textContent = new Intl.NumberFormat('es-CL').format(updatedData.stock_actual);
-            row.querySelector('.product-stock-minimo').textContent = new Intl.NumberFormat('es-CL').format(updatedData.stock_minimo);
 
-            editProductModal.hide();
-            // Optionally, show a success message
-            const alertContainer = document.querySelector('.container.mt-4');
-            const alert = `<div class="alert alert-success alert-dismissible fade show" role="alert">
-                Producto actualizado exitosamente.
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>`;
-            alertContainer.insertAdjacentHTML('afterbegin', alert);
+        productList.addEventListener('click', function(e) {
+            const target = e.target.closest('.product-item');
+            if (target) {
+                e.preventDefault();
+                const currentActive = document.querySelector('.product-item.active');
+                if (currentActive) {
+                    currentActive.classList.remove('active');
+                }
+                target.classList.add('active');
+                loadProductDetails(target.dataset.productId);
+            }
+        });
 
-        } else {
-            const errorData = await response.json();
-            alert('Error al actualizar el producto: ' + JSON.stringify(errorData.errors));
+        productSearch.addEventListener('keyup', function() {
+            const filter = productSearch.value.toLowerCase();
+            document.querySelectorAll('#product-list .product-item').forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(filter) ? '' : 'none';
+            });
+        });
+
+        const newProductBtn = document.querySelector('[data-bs-target="#productModal"]');
+        if(newProductBtn) {
+            newProductBtn.addEventListener('click', function() {
+                openProductModal('new');
+            });
         }
     });
-});
 </script>
 {% endblock %}

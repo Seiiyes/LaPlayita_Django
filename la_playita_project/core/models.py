@@ -1,6 +1,6 @@
 # C:\laplayita\la_playita_project\core\models.py (Refactored)
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Sum, F, ExpressionWrapper, DecimalField
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.utils import timezone
 
@@ -151,6 +151,7 @@ class Proveedor(models.Model):
 class Producto(models.Model):
     nombre = models.CharField(unique=True, max_length=50)
     precio_unitario = models.DecimalField(max_digits=12, decimal_places=2)
+    costo_promedio = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text="Costo promedio ponderado, calculado automáticamente a partir de los lotes.")
     descripcion = models.CharField(max_length=255, blank=True, null=True)
     stock_minimo = models.IntegerField()
     stock_actual = models.PositiveIntegerField(default=0, help_text="Calculado automáticamente a partir de los lotes.")
@@ -158,6 +159,23 @@ class Producto(models.Model):
 
     def __str__(self):
         return self.nombre
+
+    def actualizar_costo_promedio_y_stock(self):
+        lotes = self.lote_set.all()
+        
+        aggregates = lotes.aggregate(
+            total_stock=Sum('cantidad_disponible'),
+            total_cost=Sum(F('cantidad_disponible') * F('costo_unitario_lote'), 
+                           output_field=DecimalField())
+        )
+
+        new_stock = aggregates['total_stock'] or 0
+        total_cost = aggregates['total_cost'] or 0
+
+        self.stock_actual = new_stock
+        self.costo_promedio = total_cost / new_stock if new_stock > 0 else 0
+        
+        self.save(update_fields=['stock_actual', 'costo_promedio'])
 
     class Meta:
         managed = True
@@ -177,19 +195,12 @@ class Lote(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        self._actualizar_stock_producto()
+        self.producto.actualizar_costo_promedio_y_stock()
 
     def delete(self, *args, **kwargs):
         producto = self.producto
         super().delete(*args, **kwargs)
-        self._actualizar_stock_producto(producto)
-
-    def _actualizar_stock_producto(self, producto=None):
-        if producto is None:
-            producto = self.producto
-        total_stock = Lote.objects.filter(producto=producto).aggregate(total=Sum('cantidad_disponible'))['total']
-        new_stock = total_stock if total_stock is not None else 0
-        Producto.objects.filter(pk=producto.pk).update(stock_actual=new_stock)
+        producto.actualizar_costo_promedio_y_stock()
 
     @property
     def proveedor(self):
@@ -287,7 +298,7 @@ class ReabastecimientoDetalle(models.Model):
 
 class MovimientoInventario(models.Model):
     producto = models.ForeignKey(Producto, models.DO_NOTHING)
-    lote = models.ForeignKey(Lote, models.DO_NOTHING, blank=True, null=True)
+    lote = models.ForeignKey(Lote, models.SET_NULL, blank=True, null=True)
     cantidad = models.IntegerField()
     tipo_movimiento = models.CharField(max_length=20)
     fecha_movimiento = models.DateTimeField()
