@@ -1,0 +1,71 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Detalle de PQRS #{{ pqrs.id }}{% endblock %}
+
+{% block content %}
+<div class="container-lg mt-4">
+    <a href="{% url 'pqrs_list' %}" class="btn btn-secondary mb-3">
+        <i class="bi bi-arrow-left"></i> Volver al Listado
+    </a>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">PQRS #{{ pqrs.id }}</h4>
+                    <span class="badge bg-info">{{ pqrs.get_estado_display }}</span>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">{{ pqrs.descripcion }}</p>
+                    <hr>
+                    <p><strong>Cliente:</strong> {{ pqrs.cliente.nombres }} {{ pqrs.cliente.apellidos }} ({{ pqrs.cliente.documento }})</p>
+                    <p><strong>Correo del Cliente:</strong> {{ pqrs.cliente.correo }}</p>
+                    <p><strong>Teléfono del Cliente:</strong> {{ pqrs.cliente.telefono }}</p>
+                    <p><strong>Tipo:</strong> {{ pqrs.get_tipo_display }}</p>
+                    <p><strong>Registrado por:</strong> {{ pqrs.usuario.get_full_name|default:pqrs.usuario.username }}</p>
+                    <p><strong>Fecha de Creación:</strong> {{ pqrs.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Última Actualización:</strong> {{ pqrs.fecha_actualizacion|date:"d/m/Y H:i" }}</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Actualizar PQRS</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'pqrs_update' pqrs.id %}">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        <button type="submit" class="btn btn-primary">Actualizar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Historial de Cambios</h5>
+                </div>
+                <div class="card-body">
+                    {% if historial %}
+                        <ul class="list-group list-group-flush">
+                            {% for item in historial %}
+                                <li class="list-group-item">
+                                    <p class="mb-1"><strong>Fecha:</strong> {{ item.fecha_cambio|date:"d/m/Y H:i" }}</p>
+                                    <p class="mb-1"><strong>Usuario:</strong> {{ item.usuario.get_full_name|default:item.usuario.username }}</p>
+                                    <p class="mb-1"><strong>Cambio:</strong> {{ item.estado_anterior }} -> {{ item.estado_nuevo }}</p>
+                                    {% if item.descripcion_cambio %}
+                                        <p class="mb-1"><strong>Descripción:</strong> {{ item.descripcion_cambio }}</p>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted">No hay historial de cambios.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

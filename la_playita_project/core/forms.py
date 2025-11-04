@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.core.validators import MinValueValidator
-from .models import Usuario, Rol, Producto, Lote, Categoria
+from .models import Usuario, Rol, Producto, Lote, Categoria, Pqrs
 from .models import Reabastecimiento, ReabastecimientoDetalle, Proveedor
 from django.forms import inlineformset_factory
 from datetime import date
@@ -140,3 +140,23 @@ ReabastecimientoDetalleFormSet = inlineformset_factory(
     can_delete=True,
     fk_name='reabastecimiento'
 )
+
+class PqrsForm(forms.ModelForm):
+    class Meta:
+        model = Pqrs
+        fields = ['tipo', 'descripcion']
+        widgets = {
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
+        }
+
+class PqrsUpdateForm(forms.ModelForm):
+    descripcion_cambio = forms.CharField(widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}), label="Observación del cambio de estado", required=False)
+
+    class Meta:
+        model = Pqrs
+        fields = ['respuesta', 'estado']
+        widgets = {
+            'respuesta': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
+            'estado': forms.Select(attrs={'class': 'form-select'}),
+        }

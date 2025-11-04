@@ -16,8 +16,8 @@ from django.core.mail import EmailMultiAlternatives
 from datetime import datetime
 from django.utils import timezone
 
-from .models import Producto, Lote, Categoria, MovimientoInventario, Cliente, Venta, VentaDetalle
-from .forms import VendedorRegistrationForm, ProductoForm, LoteForm, CategoriaForm
+from .models import Producto, Lote, Categoria, MovimientoInventario, Cliente, Venta, VentaDetalle, Pqrs, PqrsHistorial
+from .forms import VendedorRegistrationForm, ProductoForm, LoteForm, CategoriaForm, PqrsForm, PqrsUpdateForm
 from .models import Reabastecimiento, ReabastecimientoDetalle, Proveedor
 from .forms import ReabastecimientoForm, ReabastecimientoDetalleFormSet
 from django.db import transaction, connection
@@ -942,6 +942,31 @@ def proveedor_create_ajax(request):
 
 @login_required
 @require_POST
+@check_user_role(allowed_roles=['Administrador', 'Vendedor'])
+def cliente_create_ajax(request):
+    """
+    Vista para crear un cliente vía AJAX.
+    """
+    try:
+        data = json.loads(request.body)
+        cliente = Cliente.objects.create(
+            nombres=data['nombres'],
+            apellidos=data['apellidos'],
+            documento=data['documento'],
+            telefono=data.get('telefono', ''),
+            email=data.get('email', '')
+        )
+        return JsonResponse({
+            'id': cliente.id,
+            'nombres': cliente.nombres,
+            'apellidos': cliente.apellidos,
+            'documento': cliente.documento,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+@login_required
+@require_POST
 @check_user_role(allowed_roles=['Administrador'])
 def categoria_create_ajax(request):
     """
@@ -983,3 +1008,107 @@ def producto_create_ajax(request):
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+# ----------------------------------------------
+# Vistas de PQRS
+# ----------------------------------------------
+
+@login_required
+@check_user_role(allowed_roles=['Administrador', 'Vendedor'])
+def pqrs_list(request):
+    if request.method == 'POST':
+        form = PqrsForm(request.POST)
+        if form.is_valid():
+            pqrs = form.save(commit=False)
+            cliente_id = request.POST.get('cliente')
+            try:
+                cliente = Cliente.objects.get(id=cliente_id)
+                pqrs.cliente = cliente
+                pqrs.usuario = request.user
+                pqrs.fecha_creacion = timezone.now()
+                pqrs.save()
+                messages.success(request, 'PQRS creado exitosamente.')
+                return redirect('pqrs_list')
+            except Cliente.DoesNotExist:
+                messages.error(request, f'No se encontró un cliente con el ID {cliente_id}.')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{form.fields[field].label}: {error}")
+    else:
+        form = PqrsForm()
+
+    pqrs_query = Pqrs.objects.select_related('cliente', 'usuario').order_by('-fecha_creacion')
+    query = request.GET.get('q')
+    if query:
+        pqrs_query = pqrs_query.filter(
+            models.Q(cliente__nombres__icontains=query) |
+            models.Q(cliente__apellidos__icontains=query) |
+            models.Q(cliente__documento__icontains=query) |
+            models.Q(tipo__icontains=query) |
+            models.Q(estado__icontains=query)
+        )
+
+    clientes = Cliente.objects.all()
+    context = {
+        'pqrs': pqrs_query,
+        'form': form,
+        'clientes': clientes,
+    }
+    return render(request, 'core/pqrs_list.html', context)
+
+
+@login_required
+@check_user_role(allowed_roles=['Administrador', 'Vendedor'])
+def pqrs_detail(request, pk):
+    pqrs = get_object_or_404(Pqrs, pk=pk)
+    historial = PqrsHistorial.objects.filter(pqrs=pqrs).order_by('-fecha_cambio')
+    form = PqrsUpdateForm(instance=pqrs)
+    context = {
+        'pqrs': pqrs,
+        'historial': historial,
+        'form': form,
+    }
+    return render(request, 'core/pqrs_detail.html', context)
+
+@login_required
+@check_user_role(allowed_roles=['Administrador', 'Vendedor'])
+def pqrs_update(request, pk):
+    pqrs = get_object_or_404(Pqrs, pk=pk)
+    if request.method == 'POST':
+        form = PqrsUpdateForm(request.POST, instance=pqrs)
+        if form.is_valid():
+            estado_anterior = pqrs.estado
+            pqrs_actualizado = form.save()
+            estado_nuevo = pqrs_actualizado.estado
+
+            if estado_anterior != estado_nuevo:
+                descripcion_cambio = form.cleaned_data.get('descripcion_cambio')
+                if not descripcion_cambio:
+                    messages.error(request, 'Debe proporcionar una observación para el cambio de estado.')
+                    return redirect('pqrs_detail', pk=pk)
+                
+                PqrsHistorial.objects.create(
+                    pqrs=pqrs_actualizado,
+                    usuario=request.user,
+                    estado_anterior=estado_anterior,
+                    estado_nuevo=estado_nuevo,
+                    descripcion_cambio=descripcion_cambio,
+                    fecha_cambio=timezone.now()
+                )
+            
+            messages.success(request, 'PQRS actualizado exitosamente.')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{form.fields[field].label}: {error}")
+    return redirect('pqrs_detail', pk=pk)
+
+@never_cache
+@login_required
+@require_POST
+@check_user_role(allowed_roles=['Administrador'])
+def pqrs_delete(request, pk):
+    pqrs = get_object_or_404(Pqrs, pk=pk)
+    pqrs.delete()
+    return JsonResponse({'message': 'PQRS eliminado exitosamente.'})

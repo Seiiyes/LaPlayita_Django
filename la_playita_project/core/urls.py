@@ -48,7 +48,8 @@ urlpatterns = [
     path('inventario/editar/<int:pk>/', views.producto_update, name='producto_update'),
     path('inventario/eliminar/<int:pk>/', views.producto_delete, name='producto_delete'),
     path('proveedores/crear/', views.proveedor_create_ajax, name='proveedor_create'),
-    path('categorias/crear/', views.categoria_create_ajax, name='categoria_create_ajax'),    # ----------------------------------------------
+    path('categorias/crear/', views.categoria_create_ajax, name='categoria_create_ajax'),
+    path('clientes/crear/ajax/', views.cliente_create_ajax, name='cliente_create_ajax'),    # ----------------------------------------------
     # Gestión de Lotes (Trazabilidad)
     # ----------------------------------------------
     path('inventario/producto/<int:producto_pk>/lotes/', views.lote_list, name='lote_list'),
@@ -69,4 +70,13 @@ urlpatterns = [
     path('reabastecimientos/<int:pk>/eliminar/', views.reabastecimiento_eliminar, name='reabastecimiento_eliminar'),
     path('reabastecimientos/<int:pk>/recibir/', views.reabastecimiento_recibir, name='reabastecimiento_recibir'),
     path('ventas/procesar/', views.procesar_venta, name='procesar_venta'),
+
+    # ----------------------------------------------
+    # PQRS
+    # ----------------------------------------------
+    path('pqrs/', views.pqrs_list, name='pqrs_list'),
+
+    path('pqrs/<int:pk>/', views.pqrs_detail, name='pqrs_detail'),
+    path('pqrs/<int:pk>/update/', views.pqrs_update, name='pqrs_update'),
+    path('pqrs/<int:pk>/eliminar/', views.pqrs_delete, name='pqrs_delete'),
 ]
