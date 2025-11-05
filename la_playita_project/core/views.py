@@ -254,6 +254,22 @@ def procesar_venta(request):
                     lote.cantidad_disponible -= cantidad_a_tomar_del_lote
                     lote.save()
 
+                    # Registrar movimiento de salida por venta
+                    try:
+                        MovimientoInventario.objects.create(
+                            producto=producto,
+                            lote=lote,
+                            cantidad=cantidad_a_tomar_del_lote,
+                            tipo_movimiento='salida',
+                            fecha_movimiento=timezone.now(),
+                            descripcion=f'Venta #{venta.pk}',
+                            venta_id=venta.pk
+                        )
+                    except Exception:
+                        # No queremos que un fallo al crear el movimiento impida la venta;
+                        # registramos el error en stdout (puedes cambiar por logging).
+                        print(f"No se pudo registrar movimiento de inventario para venta {venta.pk} y lote {lote.pk}")
+
                     total_venta_calculado += cantidad_a_tomar_del_lote * producto.precio_unitario
                     cantidad_restante_por_vender -= cantidad_a_tomar_del_lote
             
@@ -549,6 +565,34 @@ def reabastecimiento_list(request):
         'productos': productos,
     }
     return render(request, 'core/reabastecimiento_list.html', context)
+
+
+@never_cache
+@login_required
+@check_user_role(allowed_roles=['Administrador'])
+def movimientos_list(request):
+    """
+    Lista los movimientos de inventario (entradas y salidas).
+    Página simple que muestra los registros de `MovimientoInventario` ordenados por fecha.
+    """
+    movimientos = MovimientoInventario.objects.select_related('producto', 'lote').order_by('-fecha_movimiento')
+
+    data = []
+    for m in movimientos:
+        data.append({
+            'id': m.id,
+            'producto': m.producto.nombre if getattr(m, 'producto', None) else 'N/A',
+            'lote': m.lote.numero_lote if getattr(m, 'lote', None) else None,
+            'cantidad': m.cantidad,
+            'tipo_movimiento': m.tipo_movimiento,
+            'fecha_movimiento': m.fecha_movimiento.isoformat() if m.fecha_movimiento else None,
+            'descripcion': m.descripcion or '',
+            'venta_id': m.venta_id,
+            'reabastecimiento_id': m.reabastecimiento_id,
+        })
+
+    # Si quieres una plantilla HTML, reemplaza JsonResponse por render(...)
+    return JsonResponse({'movimientos': data})
 
 
 @never_cache

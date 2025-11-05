@@ -70,6 +70,8 @@ urlpatterns = [
     path('reabastecimientos/<int:pk>/eliminar/', views.reabastecimiento_eliminar, name='reabastecimiento_eliminar'),
     path('reabastecimientos/<int:pk>/recibir/', views.reabastecimiento_recibir, name='reabastecimiento_recibir'),
     path('ventas/procesar/', views.procesar_venta, name='procesar_venta'),
+     # Movimientos de inventario (entradas por reabastecimiento y salidas por venta)
+     path('movimientos/', views.movimientos_list, name='movimientos_list'),
 
     # ----------------------------------------------
     # PQRS
