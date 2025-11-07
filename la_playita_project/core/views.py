@@ -681,39 +681,58 @@ def reabastecimiento_recibir(request, pk):
     actualizando así el stock de los productos.
     """
     try:
+        data = json.loads(request.body)
+        reabastecimiento_id = pk
+        detalles_recibidos = data.get('detalles', [])
+
         with transaction.atomic():
-            reab = get_object_or_404(Reabastecimiento, pk=pk)
+            reab = get_object_or_404(Reabastecimiento, pk=reabastecimiento_id)
             
             if reab.estado == Reabastecimiento.ESTADO_RECIBIDO:
                 return JsonResponse({'error': 'Este reabastecimiento ya ha sido recibido.'}, status=400)
 
+            for detalle_data in detalles_recibidos:
+                detalle_id = detalle_data.get('id')
+                cantidad_recibida = detalle_data.get('cantidad_recibida')
+
+                detalle = get_object_or_404(ReabastecimientoDetalle, pk=detalle_id, reabastecimiento=reab)
+
+                if cantidad_recibida is None or not isinstance(cantidad_recibida, int) or cantidad_recibida < 0:
+                    return JsonResponse({'error': f'Cantidad recibida inválida para el producto {detalle.producto.nombre}.'}, status=400)
+                
+                if cantidad_recibida > detalle.cantidad:
+                    return JsonResponse({'error': f'La cantidad recibida ({cantidad_recibida}) no puede ser mayor que la cantidad solicitada ({detalle.cantidad}) para el producto {detalle.producto.nombre}.'}, status=400)
+
+                detalle.cantidad_recibida = cantidad_recibida
+                detalle.save()
+
+                if detalle.cantidad_recibida > 0:
+                    if not detalle.fecha_caducidad:
+                        return JsonResponse({'error': f'El producto {detalle.producto.nombre} no tiene fecha de caducidad.'}, status=400)
+
+                    numero_lote = f"R{reab.pk}-P{detalle.producto.pk}-{detalle.pk}"
+                    lote = Lote.objects.create(
+                        producto=detalle.producto,
+                        reabastecimiento_detalle=detalle,
+                        numero_lote=numero_lote,
+                        cantidad_disponible=detalle.cantidad_recibida, # Use cantidad_recibida here
+                        costo_unitario_lote=detalle.costo_unitario,
+                        fecha_caducidad=detalle.fecha_caducidad
+                    )
+                    
+                    MovimientoInventario.objects.create(
+                        producto=lote.producto,
+                        lote=lote,
+                        cantidad=lote.cantidad_disponible, # Use cantidad_disponible from lote (which is cantidad_recibida)
+                        tipo_movimiento='entrada',
+                        fecha_movimiento=timezone.now(),
+                        descripcion=f'Entrada por reabastecimiento #{reab.pk}',
+                        reabastecimiento_id=reab.pk
+                    )
+            
             reab.estado = Reabastecimiento.ESTADO_RECIBIDO
             reab.save()
 
-            for detalle in reab.reabastecimientodetalle_set.all():
-                if not detalle.fecha_caducidad:
-                    return JsonResponse({'error': f'El producto {detalle.producto.nombre} no tiene fecha de caducidad.'}, status=400)
-
-                numero_lote = f"R{reab.pk}-P{detalle.producto.pk}-{detalle.pk}"
-                lote = Lote.objects.create(
-                    producto=detalle.producto,
-                    reabastecimiento_detalle=detalle,
-                    numero_lote=numero_lote,
-                    cantidad_disponible=detalle.cantidad,
-                    costo_unitario_lote=detalle.costo_unitario,
-                    fecha_caducidad=detalle.fecha_caducidad
-                )
-                
-                MovimientoInventario.objects.create(
-                    producto=lote.producto,
-                    lote=lote,
-                    cantidad=lote.cantidad_disponible,
-                    tipo_movimiento='entrada',
-                    fecha_movimiento=timezone.now(),
-                    descripcion=f'Entrada por reabastecimiento #{reab.pk}',
-                    reabastecimiento_id=reab.pk
-                )
-            
             return JsonResponse({'message': 'Reabastecimiento marcado como recibido y stock actualizado.', 'estado': reab.get_estado_display()})
 
     except Exception as e:
@@ -825,6 +844,7 @@ def reabastecimiento_editar(request, pk):
                 'producto_id': detalle.producto_id,
                 'producto_nombre': detalle.producto.nombre,  # <-- Añadido para el frontend
                 'cantidad': detalle.cantidad,
+                'cantidad_recibida': detalle.cantidad_recibida,
                 'costo_unitario': str(detalle.costo_unitario),
                 'fecha_caducidad': detalle.fecha_caducidad.isoformat() if detalle.fecha_caducidad else None
             } for detalle in reab.reabastecimientodetalle_set.all()]
@@ -1016,16 +1036,28 @@ def categoria_create_ajax(request):
     """
     Vista para crear una categoría vía AJAX.
     """
+    print("categoria_create_ajax view called.")
     try:
         data = json.loads(request.body)
+        print(f"Received data: {data}")
+        nombre_categoria = data.get('nombre')
+        if not nombre_categoria:
+            print("Error: 'nombre' not found in request data.")
+            return JsonResponse({'error': 'El nombre de la categoría es requerido.'}, status=400)
+
         categoria = Categoria.objects.create(
-            nombre=data['nombre']
+            nombre=nombre_categoria
         )
+        print(f"Category created: id={categoria.id}, nombre={categoria.nombre}")
         return JsonResponse({
             'id': categoria.id,
             'nombre': categoria.nombre
         })
+    except json.JSONDecodeError:
+        print("Error: Invalid JSON in request body.")
+        return JsonResponse({'error': 'Formato de solicitud JSON inválido.'}, status=400)
     except Exception as e:
+        print(f"Error creating category: {e}")
         return JsonResponse({'error': str(e)}, status=400)
 
 @login_required

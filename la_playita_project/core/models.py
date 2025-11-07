@@ -288,7 +288,8 @@ class Reabastecimiento(models.Model):
 class ReabastecimientoDetalle(models.Model):
     reabastecimiento = models.ForeignKey(Reabastecimiento, models.CASCADE, null=True)
     producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
-    cantidad = models.IntegerField()
+    cantidad = models.IntegerField() # Cantidad solicitada
+    cantidad_recibida = models.IntegerField(default=0) # Cantidad realmente recibida
     costo_unitario = models.DecimalField(max_digits=12, decimal_places=2)
     fecha_caducidad = models.DateField(null=True, blank=True)
 

@@ -70,6 +70,7 @@ TEMPLATES = [
                 'core.templatetags.auth_extras',
                 'core.templatetags.number_extras',
                 'core.templatetags.currency_format',
+                'core.templatetags.reabastecimiento_extras',
             ],
         },
     },

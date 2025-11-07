@@ -1,12 +1,13 @@
 {% extends 'core/base.html' %}
+{% block title %}Reabastecimientos{% endblock %}
+
+{% load reabastecimiento_extras %}
 {% load tz %}
 {% load static %}
 {% load humanize %}
 {% load auth_extras %}
 {% load number_extras %}
 {% load currency_format %}
-
-{% block title %}Reabastecimientos{% endblock %}
 
 {% block content %}
 <div class="container-fluid h-100 p-0">
@@ -79,32 +80,41 @@
                                                     <tr>
                                                         <th>Producto</th>
                                                         <th>Categoría</th>
-                                                        <th class="text-center">Cantidad</th>
+                                                        <th class="text-center">Cant. Solicitada / Recibida</th>
                                                         <th class="text-end">Costo Unitario</th>
+                                                        <th class="text-end">Valor Pendiente</th>
                                                         <th class="text-end">Subtotal</th>
-                                                        <th class="text-center">Estado Actual</th>
+                                                        <th class="text-center">Estado Recepción</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {% for detalle in r.reabastecimientodetalle_set.all %}
-                                                    {% with lote=detalle.lote_set.first %}
+                                                    {% with valor_pendiente=detalle.cantidad|subtract:detalle.cantidad_recibida|multiply:detalle.costo_unitario %}
                                                     <tr>
                                                         <td>{{ detalle.producto.nombre }}</td>
                                                         <td>{{ detalle.producto.categoria.nombre }}</td>
-                                                        <td class="text-center">{{ detalle.cantidad }}</td>
+                                                        <td class="text-center">
+                                                            {{ detalle.cantidad }} / {{ detalle.cantidad_recibida }}
+                                                            {% if detalle.cantidad_recibida > 0 and detalle.cantidad_recibida < detalle.cantidad %}
+                                                                <span class="badge bg-warning text-dark ms-1" title="Cantidad recibida menor a la solicitada">Parcial</span>
+                                                            {% elif detalle.cantidad_recibida > detalle.cantidad %}
+                                                                <span class="badge bg-danger text-white ms-1" title="Cantidad recibida mayor a la solicitada">Exceso</span>
+                                                            {% endif %}
+                                                        </td>
                                                         <td class="text-end">{{ detalle.costo_unitario|currency }}</td>
+                                                        <td class="text-end">{{ valor_pendiente|currency }}</td> {# Added Valor Pendiente #}
                                                         <td class="text-end">{{ detalle.cantidad|multiply:detalle.costo_unitario|currency }}</td>
                                                         <td class="text-center">
-                                                            {% if lote %}
-                                                                {% if lote.cantidad_disponible == 0 %}
-                                                                <span class="badge bg-danger">Agotado</span>
-                                                                {% elif lote.cantidad_disponible < detalle.cantidad %}
-                                                                <span class="badge bg-warning">Parcial: {{ lote.cantidad_disponible }}</span>
+                                                            {% if r.estado == 'recibido' %}
+                                                                {% if detalle.cantidad_recibida == 0 %}
+                                                                    <span class="badge bg-danger">No Recibido</span>
+                                                                {% elif detalle.cantidad_recibida < detalle.cantidad %}
+                                                                    <span class="badge bg-warning">Parcialmente Recibido</span>
                                                                 {% else %}
-                                                                <span class="badge bg-success">Completo</span>
+                                                                    <span class="badge bg-success">Recibido Completo</span>
                                                                 {% endif %}
                                                             {% else %}
-                                                            <span class="badge bg-secondary">No recibido</span>
+                                                                <span class="badge bg-secondary">Pendiente</span>
                                                             {% endif %}
                                                         </td>
                                                     </tr>
@@ -113,9 +123,12 @@
                                                 </tbody>
                                                 <tfoot class="table-light">
                                                     <tr>
-                                                        <td colspan="5" class="text-end fw-bold">Total:</td>
-                                                        <td class="text-end fw-bold">{{ r.costo_total|currency }}</td>
-                                                        <td></td>
+                                                        <td colspan="5" class="text-end fw-bold">Total Solicitado:</td>
+                                                        <td colspan="2" class="text-end fw-bold">{{ r.costo_total|currency }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td colspan="5" class="text-end fw-bold">Valor Recibido:</td>
+                                                        <td colspan="2" class="text-end fw-bold">{% with pending_value=r|calculate_total_pending_value %}{{ r.costo_total|subtract:pending_value|currency }}{% endwith %}</td>
                                                     </tr>
                                                 </tfoot>
                                             </table>
@@ -560,6 +573,42 @@
     }
 </style>
 
+<!-- Modal Recibir Reabastecimiento -->
+<div class="modal fade" id="recibirReabastecimientoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Recibir Reabastecimiento #<span id="recibirReabastecimientoIdDisplay"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formRecibirReabastecimiento">
+                    <input type="hidden" id="recibirReabastecimientoId" name="reabastecimiento_id">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-center">Cantidad Solicitada</th>
+                                    <th class="text-center">Cantidad Recibida</th>
+                                    <th class="text-center">Fecha Caducidad</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recibirDetallesTableBody">
+                                <!-- Detalles se cargarán aquí via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="confirmarRecepcionBtn">Confirmar Recepción</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Editar Reabastecimiento -->
 <div class="modal fade" id="editarReabastecimientoModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -693,29 +742,7 @@
     </div>
 </div>
 
-<!-- Modal Nueva Categoría -->
-<div class="modal fade" id="nuevaCategoriaModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Nueva Categoría</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="nuevaCategoriaForm">
-                    <div class="mb-3">
-                        <label class="form-label">Nombre <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="nombreCategoria" maxlength="25" required>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="guardarCategoriaBtn">Guardar</button>
-            </div>
-        </div>
-    </div>
-</div>
+{% include 'core/_nueva_categoria_modal.html' %}
 
 {% endblock %}
 
@@ -779,14 +806,65 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     window.recibirReabastecimiento = async function(id) {
+        try {
+            const response = await fetch(`/reabastecimientos/${id}/editar/`); // Re-using edit endpoint to get details
+            if (!response.ok) throw new Error('Error al cargar los detalles del reabastecimiento');
+            const data = await response.json();
+
+            document.getElementById('recibirReabastecimientoId').value = data.id;
+            document.getElementById('recibirReabastecimientoIdDisplay').textContent = data.id;
+
+            const detallesTableBody = document.getElementById('recibirDetallesTableBody');
+            detallesTableBody.innerHTML = ''; // Clear previous details
+
+            data.detalles.forEach((detalle, index) => {
+                const row = detallesTableBody.insertRow();
+                row.innerHTML = `
+                    <td>${detalle.producto_nombre}</td>
+                    <td class="text-center">${detalle.cantidad}</td>
+                    <td class="text-center">
+                        <input type="number" class="form-control form-control-sm cantidad-recibida-input"
+                               name="detalle-${detalle.id}-cantidad_recibida"
+                               value="${detalle.cantidad_recibida || detalle.cantidad}" min="0" max="${detalle.cantidad}">
+                    </td>
+                    <td class="text-center">${detalle.fecha_caducidad || 'N/A'}</td>
+                `;
+            });
+
+            const modal = new bootstrap.Modal(document.getElementById('recibirReabastecimientoModal'));
+            modal.show();
+
+        } catch (error) {
+            console.error('Error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: error.message || 'Error al intentar recibir el reabastecimiento'
+            });
+        }
+    }
+
+    document.getElementById('confirmarRecepcionBtn').addEventListener('click', async function() {
+        const reabastecimientoId = document.getElementById('recibirReabastecimientoId').value;
+        const detalles = [];
+        document.querySelectorAll('#recibirDetallesTableBody tr').forEach(row => {
+            const input = row.querySelector('.cantidad-recibida-input');
+            const name = input.name; // e.g., "detalle-123-cantidad_recibida"
+            const detalleId = name.split('-')[1]; // Extract 123
+            detalles.push({
+                id: detalleId,
+                cantidad_recibida: parseInt(input.value, 10)
+            });
+        });
+
         const result = await Swal.fire({
-            title: '¿Estás seguro?',
-            text: "El stock de los productos se actualizará.",
+            title: '¿Confirmar Recepción?',
+            text: "Se actualizará el stock de los productos con las cantidades recibidas.",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#3085d6',
             cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, marcar como recibido'
+            confirmButtonText: 'Sí, confirmar'
         });
 
         if (!result.isConfirmed) {
@@ -794,44 +872,31 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         try {
-            const response = await fetch(`/reabastecimientos/${id}/recibir/`, {
+            const response = await fetch(`/reabastecimientos/${reabastecimientoId}/recibir/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                }
+                },
+                body: JSON.stringify({ detalles: detalles })
             });
             
             if (!response.ok) {
                 const data = await response.json();
-                throw new Error(data.error || 'Error al recibir el reabastecimiento');
+                throw new Error(data.error || 'Error al confirmar la recepción del reabastecimiento');
             }
 
             const data = await response.json();
-            const row = document.querySelector(`#reabastecimiento-${id}`);
-            const statusCell = row.cells[4];
-            statusCell.innerHTML = `<span class="badge bg-success text-white">${data.estado}</span>`;
-            
-            const button = row.querySelector('.btn-success');
-            button.disabled = true;
-
-            const detailRow = document.querySelector(`#detalleReabastecimiento${id}`);
-            if (detailRow) {
-                const statusBadges = detailRow.querySelectorAll('.badge.bg-secondary');
-                statusBadges.forEach(badge => {
-                    if (badge.textContent === 'No recibido') {
-                        badge.classList.remove('bg-secondary');
-                        badge.classList.add('bg-success');
-                        badge.textContent = 'Completo';
-                    }
-                });
-            }
-
             Swal.fire({
                 icon: 'success',
                 title: '¡Éxito!',
                 text: data.message
+            }).then(() => {
+                // Reload the page or update the specific row
+                location.reload(); // Simple reload for now, can be optimized later
             });
+
+            bootstrap.Modal.getInstance(document.getElementById('recibirReabastecimientoModal')).hide();
 
         } catch (error) {
             console.error('Error:', error);
@@ -841,7 +906,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 text: error.message
             });
         }
-    }
+    });
 
     window.eliminarReabastecimiento = async function(id) {
         const result = await Swal.fire({

@@ -616,6 +616,7 @@ CREATE TABLE IF NOT EXISTS `venta` (
   `canal_venta` varchar(20) NOT NULL DEFAULT 'Tienda',
   `cliente_id` int(11) NOT NULL,
   `usuario_id` int(11) NOT NULL,
+  `total_venta` decimal(12,2) NOT NULL DEFAULT 0.00,
   PRIMARY KEY (`id`),
   KEY `cliente_id` (`cliente_id`),
   KEY `usuario_id` (`usuario_id`),

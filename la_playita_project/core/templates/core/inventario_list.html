@@ -60,7 +60,7 @@
 </div>
 
 <!-- Product Modal (for New and Edit) - Se asume que este modal contiene el formulario -->
-<div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
+<div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
@@ -81,6 +81,8 @@
         </div>
     </div>
 </div>
+
+{% include 'core/_nueva_categoria_modal.html' %}
 
 {% endblock %}
 
@@ -120,8 +122,22 @@
         const productList = document.getElementById('product-list');
         const productModal = new bootstrap.Modal(document.getElementById('productModal'));
         const productForm = document.getElementById('productForm');
+        const categoriaSelect = document.getElementById('id_categoria'); // Get the category select element
+        const nuevaCategoriaModal = new bootstrap.Modal(document.getElementById('nuevaCategoriaModal'));
+        const nuevaCategoriaForm = document.getElementById('nuevaCategoriaForm');
+        const guardarCategoriaBtn = document.getElementById('guardarCategoriaBtn');
+        const nombreCategoriaInput = document.getElementById('nombreCategoria');
+        const nuevaCategoriaBtn = document.querySelector('[data-bs-target="#nuevaCategoriaModal"]');
 
         let currentProductId = null;
+        let isProductModalOpenBeforeCategoryModal = false; // Flag to track product modal state
+
+        // Event listener para cuando se abre el modal de nueva categoría
+        nuevaCategoriaBtn.addEventListener('click', function() {
+            // No ocultar productModal; nuevaCategoriaModal se abrirá encima.
+            // Solo necesitamos saber si productModal estaba abierto para re-enfocarlo si es necesario.
+            isProductModalOpenBeforeCategoryModal = productModal._isShown;
+        });
 
         // Función de formato de moneda (simplificada)
         const formatCurrency = (value) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value);
@@ -451,6 +467,54 @@
                 openProductModal('new');
             });
         }
+
+        // AJAX para crear nueva categoría
+        guardarCategoriaBtn.addEventListener('click', async function() {
+            const nombreCategoria = nombreCategoriaInput.value.trim();
+            if (!nombreCategoria) {
+                Swal.fire('Error', 'El nombre de la categoría no puede estar vacío.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('{% url "categoria_create_ajax" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ nombre: nombreCategoria })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // Swal.fire('¡Éxito!', 'Categoría creada correctamente.', 'success'); // Removed as per user request
+
+                    // Add new category to the product form's category select
+                    const newOption = new Option(data.nombre, data.id, true, true);
+                    categoriaSelect.add(newOption);
+                    categoriaSelect.value = data.id; // Select the newly created category
+
+                    // Reset the category form
+                    nuevaCategoriaForm.reset();
+                    nombreCategoriaInput.value = '';
+                    nuevaCategoriaModal.hide(); // Hide the category modal after successful creation
+
+                } else {
+                    const errorData = await response.json();
+                    let errorText = 'Error desconocido al crear la categoría.';
+                    if (errorData.errors) {
+                        errorText = Object.values(errorData.errors).flat().join('<br>');
+                    } else if (errorData.error) {
+                        errorText = errorData.error;
+                    }
+                    Swal.fire('Error', errorText, 'error');
+                }
+            } catch (error) {
+                console.error('Error de red al crear categoría:', error);
+                Swal.fire('Error de Red', 'Ocurrió un error al intentar crear la categoría.', 'error');
+            }
+        });
     });
 </script>
 {% endblock %}
