@@ -1,0 +1,97 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load auth_extras %}
+
+{% block title %}Detalle de PQRS #{{ pqrs.id }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Detalle de PQRS #{{ pqrs.id }}</h4>
+                    <span class="badge bg-light text-dark">{{ pqrs.get_estado_display }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Tipo:</strong> {{ pqrs.get_tipo_display }}</p>
+                            <p><strong>Cliente:</strong> {{ pqrs.cliente.nombres }} {{ pqrs.cliente.apellidos }}</p>
+                            <p><strong>Documento:</strong> {{ pqrs.cliente.documento }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Fecha de Creación:</strong> {{ pqrs.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                            <p><strong>Última Actualización:</strong> {{ pqrs.fecha_actualizacion|date:"d/m/Y H:i"|default:"N/A" }}</p>
+                            <p><strong>Registrado por:</strong> {{ pqrs.usuario.get_full_name|default:"Sistema" }}</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <h5>Descripción del Caso</h5>
+                    <p>{{ pqrs.descripcion }}</p>
+                    <hr>
+                    <h5>Respuesta</h5>
+                    <p>{{ pqrs.respuesta|default:"Aún no hay respuesta." }}</p>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">Historial de Cambios</h5>
+                </div>
+                <div class="card-body">
+                    {% if historial %}
+                        <ul class="list-group list-group-flush">
+                            {% for item in historial %}
+                                <li class="list-group-item">
+                                    <p class="mb-1"><strong>Fecha:</strong> {{ item.fecha_cambio|date:"d/m/Y H:i" }}</p>
+                                    <p class="mb-1"><strong>Usuario:</strong> {{ item.usuario.get_full_name|default:"Sistema" }}</p>
+                                    <p class="mb-1"><strong>Cambio:</strong> De <span class="badge bg-secondary">{{ item.estado_anterior }}</span> a <span class="badge bg-info">{{ item.estado_nuevo }}</span></p>
+                                    <p class="mb-0"><strong>Observación:</strong> {{ item.descripcion_cambio }}</p>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted">No hay historial de cambios para este caso.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            {% if user|has_role:"Administrador" or user|has_role:"Vendedor" %}
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">Actualizar Caso</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{% url 'pqrs:pqrs_update' pk=pqrs.pk %}" method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="{{ form.respuesta.id_for_label }}" class="form-label">{{ form.respuesta.label }}</label>
+                            {{ form.respuesta }}
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.estado.id_for_label }}" class="form-label">{{ form.estado.label }}</label>
+                            {{ form.estado }}
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.descripcion_cambio.id_for_label }}" class="form-label">{{ form.descripcion_cambio.label }}</label>
+                            {{ form.descripcion_cambio }}
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="mt-4">
+        <a href="{% url 'pqrs:pqrs_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Volver a la Lista
+        </a>
+    </div>
+</div>
+{% endblock %}

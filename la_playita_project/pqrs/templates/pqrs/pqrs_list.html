@@ -1,0 +1,56 @@
+{% extends 'core/base.html' %}
+{% block title %}Lista de PQRS{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">PQRS (Peticiones, Quejas, Reclamos y Sugerencias)</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Cliente</th>
+                                    <th>Tipo</th>
+                                    <th>Estado</th>
+                                    <th>Asignado a</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pqrs in object_list %}
+                                <tr>
+                                    <td>{{ pqrs.fecha_creacion }}</td>
+                                    <td>{{ pqrs.cliente }}</td>
+                                    <td>{{ pqrs.get_tipo_display }}</td>
+                                    <td>
+                                        <span class="badge badge-{{ pqrs.get_estado_color }}">
+                                            {{ pqrs.get_estado_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ pqrs.asignado_a|default:"-" }}</td>
+                                    <td>
+                                        <a href="{% url 'pqrs_detail' pqrs.id %}" class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i> Ver
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6">No hay PQRS registrados.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

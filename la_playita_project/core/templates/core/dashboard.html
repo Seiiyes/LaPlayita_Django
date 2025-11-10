@@ -7,9 +7,9 @@
 <p class="lead">Bienvenido, aquí puedes ver un resumen del estado del negocio.</p>
 
 <div class="row g-4">
-    <div class="col-md-3">
+    <div class="col-lg-2 col-md-4 col-sm-6">
         <div class="card text-center bg-success text-white h-100">
-            <a href="{% url 'pos_view' %}" class="text-decoration-none text-white d-flex flex-column justify-content-center">
+            <a href="{% url 'pos:pos_view' %}" class="text-decoration-none text-white d-flex flex-column justify-content-center">
                 <div class="card-body">
                     <i class="bi bi-cash-register display-4"></i>
                     <h5 class="card-title mt-2">Punto de Venta</h5>
@@ -19,36 +19,46 @@
         </div>
     </div>
     
-    <div class="col-md-3">
-        <div class="card text-center {% if productos_bajos_stock > 0 %}bg-danger text-white{% else %}bg-success text-white{% endif %}">
+    <div class="col-lg-2 col-md-4 col-sm-6">
+        <div class="card text-center {% if productos_bajos_stock > 0 %}bg-danger text-white{% else %}bg-primary text-white{% endif %} h-100">
             <div class="card-body">
                 <i class="bi bi-exclamation-triangle display-4"></i>
                 <h5 class="card-title mt-2">Alertas de Stock</h5>
                 <p class="card-text display-6">{{ productos_bajos_stock }}</p>
-                <a href="{% url 'alertas_stock' %}" class="btn btn-light btn-sm mt-2">Ver Detalles</a>
+                <a href="{% url 'inventory:alertas_stock' %}" class="btn btn-light btn-sm mt-2">Ver Detalles</a>
             </div>
         </div>
     </div>
 
-    <div class="col-md-3">
-        <div class="card text-center bg-info text-white">
+    <div class="col-lg-2 col-md-4 col-sm-6">
+        <div class="card text-center bg-info text-white h-100">
             <div class="card-body">
                 <i class="bi bi-boxes display-4"></i>
                 <h5 class="card-title mt-2">Total Productos</h5>
                 <p class="card-text display-6">{{ total_productos }}</p>
-                <a href="{% url 'inventario_list' %}" class="btn btn-light btn-sm mt-2">Ir a Inventario</a>
+                <a href="{% url 'inventory:inventario_list' %}" class="btn btn-light btn-sm mt-2">Ir a Inventario</a>
             </div>
         </div>
     </div>
 
     {% if user|has_role:'Administrador' %}
-    <div class="col-md-3">
-        <div class="card text-center bg-secondary text-white">
+    <div class="col-lg-2 col-md-4 col-sm-6">
+        <div class="card text-center bg-secondary text-white h-100">
             <div class="card-body">
                 <i class="bi bi-arrow-repeat display-4"></i>
                 <h5 class="card-title mt-2">Reabastecimientos</h5>
-                <p class="card-text display-6">{{ reabastecimientos_count|default:0 }}</p>
-                <a href="{% url 'reabastecimiento_list' %}" class="btn btn-light btn-sm mt-2">Ver Reabastecimientos</a>
+                <p class="card-text display-6">{{ reabastecimientos_count|default:0 }}</p> 
+                <a href="{% url 'suppliers:reabastecimiento_list' %}" class="btn btn-light btn-sm mt-2">Ver Reabastecimientos</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-sm-6">
+        <div class="card text-center bg-warning text-dark h-100">
+            <div class="card-body">
+                <i class="bi bi-truck display-4"></i>
+                <h5 class="card-title mt-2">Proveedores</h5>
+                <p class="card-text display-6">{{ proveedores_count|default:0 }}</p>
+                <a href="{% url 'suppliers:proveedor_list' %}" class="btn btn-dark btn-sm mt-2">Ver Proveedores</a>
             </div>
         </div>
     </div>

@@ -1,0 +1,29 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Editar Producto{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h1 class="mb-0">Editar Producto: {{ producto.nombre }}</h1>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% include 'inventory/producto_form_fields.html' %}
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'inventory:inventario_list' %}" class="btn btn-secondary">Cancelar</a>
+                            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'inventory/_nueva_categoria_modal.html' %}
+{% endblock %}

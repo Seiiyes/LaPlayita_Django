@@ -31,14 +31,21 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    'core.apps.CoreConfig',
-    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    # Local apps (users needs template priority over admin)
+    'users.apps.UsersConfig',
+    'core.apps.CoreConfig',
+    'django.contrib.admin',
+    'inventory.apps.InventoryConfig',
+    'pos.apps.PosConfig',
+    'pqrs.apps.PqrsConfig',
+    'suppliers.apps.SuppliersConfig',
+    'clients.apps.ClientsConfig',
 ]
 
 MIDDLEWARE = [
@@ -64,13 +71,10 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'core.context_processors.role_flags',
+                'users.context_processors.role_flags',
             ],
             'builtins': [
-                'core.templatetags.auth_extras',
-                'core.templatetags.number_extras',
-                'core.templatetags.currency_format',
-                'core.templatetags.reabastecimiento_extras',
+                'users.templatetags.auth_extras',
             ],
         },
     },
@@ -136,6 +140,9 @@ STATIC_URL = 'static/'
 
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = '/'
+# URL de login usada por @login_required y redirecciones automáticas.
+# Apunta a la ruta global definida en la URL raíz: path('login/', CustomLoginView.as_view(), name='login')
+LOGIN_URL = '/login/'
 
 # Session Duration Settings
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Expire session when browser is closed
@@ -148,7 +155,7 @@ SESSION_SAVE_EVERY_REQUEST = True       # Reset inactivity timer on each request
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Custom User Model
-AUTH_USER_MODEL = 'core.Usuario'
+AUTH_USER_MODEL = 'users.Usuario'
 
 # ----------------------------------------------
 # Configuración de Correo Electrónico
