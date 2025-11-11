@@ -149,6 +149,11 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Expire session when browser is closed
 SESSION_COOKIE_AGE = 1800                 # Expire session after 30 minutes of inactivity (30 * 60)
 SESSION_SAVE_EVERY_REQUEST = True       # Reset inactivity timer on each request
 
+# Cambiar el motor de sesiones para no usar la base de datos.
+# Esto es necesario porque las migraciones están deshabilitadas.
+# Las sesiones se guardarán en cookies firmadas.
+SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -157,6 +162,29 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom User Model
 AUTH_USER_MODEL = 'users.Usuario'
 
+# =====================================================
+# Desactivar migraciones globalmente
+# =====================================================
+# Esta aplicación utiliza una base de datos existente (volcado SQL) sin 
+# gestión de migraciones de Django. Todos los modelos tienen Meta.managed=False
+# o corresponden a tablas pre-existentes. Por lo tanto, desactivamos las 
+# migraciones completamente para evitar que Django intente crear/modificar
+# tablas o aplicar cambios de esquema que podrían entrar en conflicto con
+# la estructura existente.
+
+class DisableMigrations(dict):
+    """
+    Disable all migrations for all apps.
+    Every app will use its existing tables without migrations.
+    """
+    def __contains__(self, item):
+        return True
+
+    def __getitem__(self, item):
+        return None
+
+
+MIGRATION_MODULES = DisableMigrations()
 # ----------------------------------------------
 # Configuración de Correo Electrónico
 # ----------------------------------------------

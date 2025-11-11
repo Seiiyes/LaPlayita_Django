@@ -11,8 +11,9 @@ import json
 from users.decorators import check_user_role
 from inventory.models import Producto, Lote
 from clients.models import Cliente
-from .models import Venta, VentaDetalle, Pedido, PedidoDetalle
+from .models import Venta, VentaDetalle, Pedido, PedidoDetalle, Pago
 from .forms import VentaForm, CarritoItemForm, ProductoSearchForm, PedidoForm
+from django.utils import timezone
 
 
 @login_required
@@ -154,7 +155,6 @@ def procesar_venta(request):
             venta = Venta.objects.create(
                 usuario=request.user,
                 cliente=cliente,
-                metodo_pago=metodo_pago,
                 canal_venta=canal_venta,
                 total_venta=Decimal('0.00')
             )
@@ -202,6 +202,15 @@ def procesar_venta(request):
             venta.total_venta = total_venta
             venta.save(update_fields=['total_venta'])
 
+            # Registrar pago asociado a la venta (tabla 'pago' en la BD)
+            Pago.objects.create(
+                venta=venta,
+                monto=total_venta,
+                metodo_pago=metodo_pago,
+                fecha_pago=timezone.now(),
+                estado='completado'
+            )
+
         messages.success(request, f'Venta #{venta.id} procesada exitosamente')
         return JsonResponse({
             'success': True,
@@ -224,10 +233,12 @@ def venta_detalle(request, venta_id):
     """
     venta = get_object_or_404(Venta, id=venta_id)
     detalles = VentaDetalle.objects.filter(venta=venta).select_related('producto', 'lote')
+    pago = Pago.objects.filter(venta=venta).first()
 
     context = {
         'venta': venta,
         'detalles': detalles,
+        'pago': pago,
     }
     return render(request, 'pos/venta_detalle.html', context)
 
@@ -261,7 +272,8 @@ def listar_ventas(request):
             pass
 
     if metodo_pago:
-        ventas = ventas.filter(metodo_pago=metodo_pago)
+        # Filtrar ventas por método de pago presente en la tabla `pago`
+        ventas = ventas.filter(pago__metodo_pago=metodo_pago)
 
     if usuario_id:
         try:

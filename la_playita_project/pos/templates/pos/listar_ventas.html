@@ -84,14 +84,14 @@
                                     <td>{{ venta.fecha_venta|date:"d/m/Y H:i" }}</td>
                                     <td>
                                         {% if venta.cliente %}
-                                            {{ venta.cliente.nombre }} {{ venta.cliente.apellido }}
+                                            {{ venta.cliente.nombres }} {{ venta.cliente.apellidos }}
                                         {% else %}
                                             <span class="text-muted">—</span>
                                         {% endif %}
                                     </td>
                                     <td>{{ venta.usuario.get_full_name|default:venta.usuario.username }}</td>
                                     <td>
-                                        <span class="badge bg-info">{{ venta.metodo_pago|title }}</span>
+                                        <span class="badge bg-info">{{ venta.pago_set.all.0.metodo_pago|default:'—'|title }}</span>
                                     </td>
                                     <td>
                                         <span class="badge bg-secondary">{{ venta.canal_venta|title }}</span>

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Venta, VentaDetalle, Pedido, PedidoDetalle
+from .models import Venta, VentaDetalle, Pedido, PedidoDetalle, Pago
 
 
 class VentaDetalleInline(admin.TabularInline):
@@ -10,12 +10,30 @@ class VentaDetalleInline(admin.TabularInline):
     readonly_fields = ('subtotal',)
 
 
+class MetodoPagoFilter(admin.SimpleListFilter):
+    title = 'Método de Pago'
+    parameter_name = 'metodo_pago'
+
+    def lookups(self, request, model_admin):
+        # Opciones estáticas; se pueden ampliar consultando la tabla Pago
+        return [
+            ('efectivo', 'Efectivo'),
+            ('tarjeta_debito', 'Tarjeta Débito'),
+            ('tarjeta_credito', 'Tarjeta Crédito'),
+            ('transferencia', 'Transferencia'),
+            ('cheque', 'Cheque'),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(pago__metodo_pago=self.value())
+        return queryset
 @admin.register(Venta)
 class VentaAdmin(admin.ModelAdmin):
     """Admin para ventas con detalles inline"""
-    list_display = ('id', 'fecha_venta', 'cliente', 'usuario', 'metodo_pago', 'canal_venta', 'total_venta')
-    list_filter = ('fecha_venta', 'metodo_pago', 'canal_venta', 'usuario')
-    search_fields = ('id', 'cliente__nombre', 'usuario__username')
+    list_display = ('id', 'fecha_venta', 'cliente', 'usuario', 'get_metodo_pago', 'canal_venta', 'total_venta')
+    list_filter = ('fecha_venta', MetodoPagoFilter, 'canal_venta', 'usuario')
+    search_fields = ('id', 'cliente__nombres', 'cliente__apellidos', 'usuario__username')
     readonly_fields = ('fecha_venta', 'total_venta')
     inlines = [VentaDetalleInline]
     fieldsets = (
@@ -23,10 +41,21 @@ class VentaAdmin(admin.ModelAdmin):
             'fields': ('fecha_venta', 'usuario', 'cliente')
         }),
         ('Detalles de Pago', {
-            'fields': ('metodo_pago', 'canal_venta', 'total_venta')
+            'fields': ('canal_venta', 'total_venta')
         }),
     )
     date_hierarchy = 'fecha_venta'
+
+    def get_metodo_pago(self, obj):
+        pago = Pago.objects.filter(venta=obj).first()
+        return pago.metodo_pago.title() if pago and pago.metodo_pago else '—'
+    get_metodo_pago.short_description = 'Método de Pago'
+
+
+class MetodoPagoFilter(admin.SimpleListFilter):
+    title = 'Método de Pago'
+    parameter_name = 'metodo_pago'
+ 
 
 
 @admin.register(VentaDetalle)
@@ -51,7 +80,7 @@ class PedidoAdmin(admin.ModelAdmin):
     """Admin para pedidos con detalles inline"""
     list_display = ('id', 'cliente', 'estado', 'fecha_creacion', 'fecha_entrega_estimada', 'usuario', 'total')
     list_filter = ('estado', 'fecha_creacion', 'usuario')
-    search_fields = ('id', 'cliente__nombre', 'cliente__apellido')
+    search_fields = ('id', 'cliente__nombres', 'cliente__apellidos')
     readonly_fields = ('fecha_creacion', 'total')
     inlines = [PedidoDetalleInline]
     fieldsets = (

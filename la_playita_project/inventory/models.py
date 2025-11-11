@@ -10,7 +10,8 @@ class Categoria(models.Model):
         return self.nombre
 
     class Meta:
-        managed = True
+        db_table = 'categoria'
+        managed = False
 
 
 class Producto(models.Model):
@@ -38,7 +39,8 @@ class Producto(models.Model):
         self.save(update_fields=['stock_actual', 'costo_promedio'])
 
     class Meta:
-        managed = True
+        db_table = 'producto'
+        managed = False
 
 
 class Lote(models.Model):
@@ -54,7 +56,8 @@ class Lote(models.Model):
         return f"Lote {self.numero_lote} ({self.producto.nombre})"
 
     class Meta:
-        managed = True
+        db_table = 'lote'
+        managed = False
         unique_together = (('producto', 'numero_lote'),)
 
 
@@ -63,8 +66,13 @@ class MovimientoInventario(models.Model):
     lote = models.ForeignKey(Lote, models.SET_NULL, blank=True, null=True)
     cantidad = models.IntegerField()
     tipo_movimiento = models.CharField(max_length=20)
-    fecha_movimiento = models.DateTimeField()
+    # SQL uses current_timestamp default; use auto_now_add to mimic existing default on insert
+    fecha_movimiento = models.DateTimeField(default=timezone.now)
     descripcion = models.CharField(max_length=255, blank=True, null=True)
+    # Referencias a venta y reabastecimiento según el dump SQL
+    venta = models.ForeignKey('pos.Venta', models.SET_NULL, blank=True, null=True)
+    reabastecimiento = models.ForeignKey('suppliers.Reabastecimiento', models.SET_NULL, blank=True, null=True)
 
     class Meta:
-        managed = True
+        db_table = 'movimiento_inventario'
+        managed = False

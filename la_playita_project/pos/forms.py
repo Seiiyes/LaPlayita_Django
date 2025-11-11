@@ -16,14 +16,30 @@ class VentaForm(forms.ModelForm):
         })
     )
 
+    METODO_CHOICES = [
+        ('efectivo', 'Efectivo'),
+        ('tarjeta_debito', 'Tarjeta Débito'),
+        ('tarjeta_credito', 'Tarjeta Crédito'),
+        ('transferencia', 'Transferencia'),
+        ('cheque', 'Cheque'),
+    ]
+
+    # metodo_pago no es campo del modelo Venta (se guarda en tabla `pago`),
+    # lo declaramos como campo de formulario independiente.
+    metodo_pago = forms.ChoiceField(
+        choices=METODO_CHOICES,
+        required=True,
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+            'id': 'metodo-pago-select'
+        })
+    )
+
     class Meta:
         model = Venta
-        fields = ('cliente', 'metodo_pago', 'canal_venta')
+        # `metodo_pago` no puede ir en Meta.fields porque no es campo del modelo Venta
+        fields = ('cliente', 'canal_venta')
         widgets = {
-            'metodo_pago': forms.Select(attrs={
-                'class': 'form-control',
-                'id': 'metodo-pago-select'
-            }),
             'canal_venta': forms.Select(attrs={
                 'class': 'form-control',
                 'id': 'canal-venta-select'

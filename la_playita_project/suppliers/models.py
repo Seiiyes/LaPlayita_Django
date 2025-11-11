@@ -3,6 +3,7 @@ from django.utils import timezone
 
 
 class Proveedor(models.Model):
+    nit = models.CharField(max_length=20, unique=True)
     nombre_empresa = models.CharField(max_length=100)
     telefono = models.CharField(max_length=50)
     correo = models.CharField(max_length=50)
@@ -12,7 +13,7 @@ class Proveedor(models.Model):
         return self.nombre_empresa
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'proveedor'
 
 
@@ -48,15 +49,15 @@ class Reabastecimiento(models.Model):
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default=ESTADO_SOLICITADO, blank=True, null=True)
     forma_pago = models.CharField(max_length=25, choices=FORMA_PAGO_CHOICES, blank=True, null=True)
     observaciones = models.TextField(blank=True, null=True)
-    proveedor = models.ForeignKey(Proveedor, on_delete=models.PROTECT, null=True)
+    proveedor = models.ForeignKey(Proveedor, on_delete=models.PROTECT)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'reabastecimiento'
 
 
 class ReabastecimientoDetalle(models.Model):
-    reabastecimiento = models.ForeignKey(Reabastecimiento, models.CASCADE, null=True)
+    reabastecimiento = models.ForeignKey(Reabastecimiento, models.CASCADE)
     producto = models.ForeignKey('inventory.Producto', on_delete=models.PROTECT)
     cantidad = models.IntegerField()
     cantidad_recibida = models.IntegerField(default=0)
@@ -64,5 +65,5 @@ class ReabastecimientoDetalle(models.Model):
     fecha_caducidad = models.DateField(null=True, blank=True)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'reabastecimiento_detalle'

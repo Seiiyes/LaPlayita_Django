@@ -16,12 +16,18 @@
                         <div class="col-md-6">
                             <p><strong>Fecha:</strong> {{ venta.fecha_venta|date:"d/m/Y H:i" }}</p>
                             <p><strong>Usuario:</strong> {{ venta.usuario.get_full_name|default:venta.usuario.username }}</p>
-                            <p><strong>Método de Pago:</strong> {{ venta.metodo_pago|title }}</p>
+                            <p><strong>Método de Pago:</strong>
+                                {% if pago %}
+                                    {{ pago.metodo_pago|title }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </p>
                         </div>
                         <div class="col-md-6">
                             <p><strong>Canal de Venta:</strong> {{ venta.canal_venta|title }}</p>
                             {% if venta.cliente %}
-                                <p><strong>Cliente:</strong> {{ venta.cliente.nombre }} {{ venta.cliente.apellido }}</p>
+                                <p><strong>Cliente:</strong> {{ venta.cliente.nombres }} {{ venta.cliente.apellidos }}</p>
                             {% else %}
                                 <p><strong>Cliente:</strong> <span class="text-muted">Sin registrar</span></p>
                             {% endif %}

@@ -5,14 +5,14 @@ from django.conf import settings
 
 class Venta(models.Model):
     fecha_venta = models.DateTimeField(default=timezone.now)
-    metodo_pago = models.CharField(max_length=25)
-    canal_venta = models.CharField(max_length=20)
-    cliente = models.ForeignKey('clients.Cliente', models.SET_NULL, null=True, blank=True)
-    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, models.SET_NULL, null=True)
+    canal_venta = models.CharField(max_length=20, default='Tienda')
+    cliente = models.ForeignKey('clients.Cliente', models.PROTECT)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, models.PROTECT)
+    pedido = models.ForeignKey('Pedido', null=True, blank=True, on_delete=models.SET_NULL, db_column='pedido_id')
     total_venta = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'venta'
 
 class VentaDetalle(models.Model):
@@ -23,7 +23,7 @@ class VentaDetalle(models.Model):
     subtotal = models.DecimalField(max_digits=12, decimal_places=2)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'venta_detalle'
 
 
@@ -44,19 +44,18 @@ class Pedido(models.Model):
     ]
 
     cliente = models.ForeignKey('clients.Cliente', on_delete=models.PROTECT)
-    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, help_text="Empleado que registra el pedido.")
-    fecha_creacion = models.DateTimeField(default=timezone.now)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, help_text="Empleado que registra el pedido.")
+    fecha_creacion = models.DateTimeField(default=timezone.now, db_column='fecha_pedido')
     fecha_entrega_estimada = models.DateTimeField(null=True, blank=True)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default=ESTADO_PENDIENTE)
-    total = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    total = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, db_column='total_pedido')
     observaciones = models.TextField(blank=True, null=True)
-    venta = models.OneToOneField(Venta, on_delete=models.SET_NULL, null=True, blank=True, help_text="Venta generada al completar el pedido.")
 
     def __str__(self):
         return f"Pedido #{self.id} - {self.cliente}"
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'pedido'
 
 class PedidoDetalle(models.Model):
@@ -74,5 +73,18 @@ class PedidoDetalle(models.Model):
         super().save(*args, **kwargs)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'pedido_detalle'
+
+
+class Pago(models.Model):
+    venta = models.ForeignKey(Venta, on_delete=models.CASCADE)
+    monto = models.DecimalField(max_digits=12, decimal_places=2)
+    metodo_pago = models.CharField(max_length=25)
+    fecha_pago = models.DateTimeField(default=timezone.now)
+    estado = models.CharField(max_length=20, default='completado')
+    referencia_transaccion = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'pago'

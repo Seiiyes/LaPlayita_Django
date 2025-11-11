@@ -10,7 +10,7 @@ class Rol(models.Model):
         return self.nombre
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'rol'
 
 
@@ -34,7 +34,8 @@ class Usuario(AbstractUser):
     telefono = models.CharField(max_length=20, blank=True, null=True)
     estado = models.CharField(max_length=20, default='activo')
 
-    rol = models.ForeignKey('Rol', on_delete=models.SET_NULL, null=True, db_column='rol_id')
+    # En el dump SQL `usuario.rol_id` es NOT NULL, alineamos permitiendo no-nulo y protegiendo eliminaciones
+    rol = models.ForeignKey('Rol', on_delete=models.PROTECT, null=False, db_column='rol_id')
 
     groups = models.ManyToManyField(
         Group,
@@ -86,7 +87,7 @@ class Usuario(AbstractUser):
         return f"{self.first_name} {self.last_name} ({self.username})"
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'usuario'
 
 

@@ -7,7 +7,7 @@ import json
 
 from inventory.models import Categoria, Producto, Lote
 from clients.models import Cliente
-from .models import Venta, VentaDetalle, Pedido, PedidoDetalle
+from .models import Venta, VentaDetalle, Pedido, PedidoDetalle, Pago
 
 User = get_user_model()
 
@@ -23,9 +23,9 @@ class VentaModelTests(TestCase):
             email='vendedor@test.com'
         )
         self.cliente = Cliente.objects.create(
-            nombre='Juan',
-            apellido='Pérez',
-            email='juan@test.com',
+            nombres='Juan',
+            apellidos='Pérez',
+            correo='juan@test.com',
             telefono='1234567890'
         )
     
@@ -34,25 +34,39 @@ class VentaModelTests(TestCase):
         venta = Venta.objects.create(
             usuario=self.usuario,
             cliente=self.cliente,
-            metodo_pago='efectivo',
             canal_venta='mostrador',
             total_venta=Decimal('100.00')
         )
-        
+
+        # Registrar pago asociado (antes era campo en Venta)
+        Pago.objects.create(
+            venta=venta,
+            monto=venta.total_venta,
+            metodo_pago='efectivo',
+            estado='completado'
+        )
+
         self.assertEqual(venta.usuario, self.usuario)
         self.assertEqual(venta.cliente, self.cliente)
-        self.assertEqual(venta.metodo_pago, 'efectivo')
+        pago = Pago.objects.get(venta=venta)
+        self.assertEqual(pago.metodo_pago, 'efectivo')
         self.assertEqual(venta.total_venta, Decimal('100.00'))
     
     def test_venta_sin_cliente(self):
         """Test para crear una venta sin cliente"""
         venta = Venta.objects.create(
             usuario=self.usuario,
-            metodo_pago='tarjeta_debito',
             canal_venta='online',
             total_venta=Decimal('250.50')
         )
-        
+
+        Pago.objects.create(
+            venta=venta,
+            monto=venta.total_venta,
+            metodo_pago='tarjeta_debito',
+            estado='completado'
+        )
+
         self.assertIsNone(venta.cliente)
         self.assertEqual(venta.total_venta, Decimal('250.50'))
 
@@ -63,7 +77,7 @@ class VentaDetalleModelTests(TestCase):
     def setUp(self):
         """Configuración inicial para los tests"""
         self.usuario = User.objects.create_user(username='vendedor', password='testpass123')
-        self.cliente = Cliente.objects.create(nombre='Juan', apellido='Pérez')
+        self.cliente = Cliente.objects.create(nombres='Juan', apellidos='Pérez', correo='juan@test.com')
         
         self.categoria = Categoria.objects.create(nombre='Bebidas')
         self.producto = Producto.objects.create(
@@ -84,9 +98,14 @@ class VentaDetalleModelTests(TestCase):
         self.venta = Venta.objects.create(
             usuario=self.usuario,
             cliente=self.cliente,
-            metodo_pago='efectivo',
             canal_venta='mostrador',
             total_venta=Decimal('0.00')
+        )
+        Pago.objects.create(
+            venta=self.venta,
+            monto=self.venta.total_venta,
+            metodo_pago='efectivo',
+            estado='completado'
         )
     
     def test_crear_venta_detalle(self):
@@ -116,7 +135,7 @@ class POSViewTests(TestCase):
             password='testpass123'
         )
         
-        self.cliente = Cliente.objects.create(nombre='Test Cliente')
+        self.cliente = Cliente.objects.create(nombres='Test Cliente', apellidos='Cliente', correo='testcliente@example.com')
         
         self.categoria = Categoria.objects.create(nombre='Test')
         self.producto = Producto.objects.create(
@@ -202,11 +221,16 @@ class POSViewTests(TestCase):
         venta = Venta.objects.create(
             usuario=self.usuario,
             cliente=self.cliente,
-            metodo_pago='efectivo',
             canal_venta='mostrador',
             total_venta=Decimal('50.00')
         )
-        
+        Pago.objects.create(
+            venta=venta,
+            monto=venta.total_venta,
+            metodo_pago='efectivo',
+            estado='completado'
+        )
+
         VentaDetalle.objects.create(
             venta=venta,
             producto=self.producto,
@@ -229,11 +253,16 @@ class POSViewTests(TestCase):
         
         # Crear varias ventas
         for i in range(3):
-            Venta.objects.create(
+            v = Venta.objects.create(
                 usuario=self.usuario,
-                metodo_pago='efectivo',
                 canal_venta='mostrador',
                 total_venta=Decimal('100.00')
+            )
+            Pago.objects.create(
+                venta=v,
+                monto=v.total_venta,
+                metodo_pago='efectivo',
+                estado='completado'
             )
         
         response = self.client.get(reverse('pos:listar_ventas'))
