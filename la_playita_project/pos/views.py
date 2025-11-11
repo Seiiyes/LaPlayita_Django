@@ -91,16 +91,15 @@ def obtener_producto(request, producto_id):
             cantidad_disponible__gt=0
         ).order_by('fecha_caducidad')
 
-        datos_lotes = [
-            {
+        datos_lotes = []
+        for lote in lotes:
+            datos_lotes.append({
                 'id': lote.id,
                 'numero_lote': lote.numero_lote,
                 'cantidad': lote.cantidad_disponible,
-                'fecha_caducidad': lote.fecha_caducidad.isoformat(),
+                'fecha_caducidad': lote.fecha_caducidad.isoformat() if lote.fecha_caducidad else None,
                 'costo': str(lote.costo_unitario_lote),
-            }
-            for lote in lotes
-        ]
+            })
 
         datos = {
             'id': producto.id,
@@ -114,7 +113,8 @@ def obtener_producto(request, producto_id):
 
         return JsonResponse(datos)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        import traceback
+        return JsonResponse({'error': str(e), 'traceback': traceback.format_exc()}, status=400)
 
 
 @login_required

@@ -85,7 +85,7 @@
 
 {% endblock %}
 
-{% block extrajs %}
+{% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const productDetailsContainer = document.getElementById('product-details-container');
@@ -105,7 +105,7 @@
 
             if (action === 'new') {
                 modalTitle.textContent = 'Nuevo Producto';
-                productForm.action = "{% url 'producto_create_ajax' %}";
+                productForm.action = "{% url 'inventory:producto_create_ajax' %}";
             }
         }
 
@@ -290,7 +290,7 @@
 
             try {
                 // La función del backend ya fue corregida para no lanzar error 500 por nulos
-                const response = await fetch(`/inventario/producto/${productId}/lotes/json/`);
+                const response = await fetch(`/inventory/producto/${productId}/lotes/`);
                 
                 if (!response.ok) {
                     // Manejo del Error 4xx/5xx (si el backend falla por otra razón o el 500 persiste)
@@ -442,7 +442,7 @@
             }
 
             try {
-                const response = await fetch("{% url 'categoria_create' %}", {
+                const response = await fetch("{% url 'inventory:categoria_create' %}", {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

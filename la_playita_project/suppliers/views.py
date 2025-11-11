@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.db import transaction, connection
 import json
 
+from django.core.serializers.json import DjangoJSONEncoder
 from users.decorators import check_user_role
 from .models import Proveedor, Reabastecimiento, ReabastecimientoDetalle
 from inventory.models import Producto, Categoria, Lote, MovimientoInventario
@@ -36,6 +37,7 @@ def proveedor_create_ajax(request):
     try:
         data = json.loads(request.body)
         proveedor = Proveedor.objects.create(
+            nit=data['nit'],
             nombre_empresa=data['nombre_empresa'],
             telefono=data.get('telefono', ''),
             correo=data.get('correo', ''),
@@ -100,7 +102,7 @@ def reabastecimiento_list(request):
         'reabastecimientos': reabs,
         'form': form,
         'formset': formset,
-        'products_json': json.dumps(productos_data),
+        'products_json': json.dumps(productos_data, cls=DjangoJSONEncoder),
         'all_products_json': json.dumps(all_products_data),
         'categorias': categorias,
     }
@@ -133,6 +135,10 @@ def reabastecimiento_create(request):
                 detalles_data = []
                 for detalle_form in formset.cleaned_data:
                     if detalle_form and not detalle_form.get('DELETE'):
+                        # Eliminar 'reabastecimiento' si existe para evitar el error de argumento múltiple
+                        detalle_form.pop('reabastecimiento', None)
+                        # Eliminar 'DELETE' para que no se pase al crear el objeto
+                        detalle_form.pop('DELETE', None)
                         detalle = ReabastecimientoDetalle.objects.create(reabastecimiento=reab, **detalle_form)
                         detalles_data.append({
                             'producto_nombre': detalle.producto.nombre,

@@ -2,6 +2,18 @@ from django import forms
 from .models import Reabastecimiento, ReabastecimientoDetalle, Proveedor
 from inventory.models import Producto
 
+class ProveedorForm(forms.ModelForm):
+    class Meta:
+        model = Proveedor
+        fields = ['nit', 'nombre_empresa', 'telefono', 'correo', 'direccion']
+        widgets = {
+            'nit': forms.TextInput(attrs={'class': 'form-control'}),
+            'nombre_empresa': forms.TextInput(attrs={'class': 'form-control'}),
+            'telefono': forms.TextInput(attrs={'class': 'form-control'}),
+            'correo': forms.EmailInput(attrs={'class': 'form-control'}),
+            'direccion': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
 class ReabastecimientoForm(forms.ModelForm):
     class Meta:
         model = Reabastecimiento

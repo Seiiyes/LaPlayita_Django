@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -40,6 +41,7 @@ def inventario_list(request):
 
 @login_required
 def producto_lotes_json(request, pk):
+    print(f"Received pk for producto_lotes_json: {pk}") # Debugging line
     producto = get_object_or_404(Producto, pk=pk)
 
     # CORRECCIÓN DE ORM: La relación a proveedor no es directa.
@@ -150,6 +152,24 @@ def producto_create(request):
             for error in errors:
                 messages.error(request, f"Error en {form.fields[field].label}: {error}")
     return redirect('inventory:inventario_list')
+
+@login_required
+@require_POST
+@check_user_role(allowed_roles=['Administrador', 'Vendedor'])
+def producto_create_ajax(request):
+    form = ProductoForm(request.POST)
+    if form.is_valid():
+        producto = form.save()
+        return JsonResponse({
+            'id': producto.pk,
+            'nombre': producto.nombre,
+            'categoria_nombre': producto.categoria.nombre if producto.categoria else 'N/A',
+            'precio_unitario': str(producto.precio_unitario or 0),
+            'stock_actual': producto.stock_actual,
+            'stock_minimo': producto.stock_minimo,
+        })
+    else:
+        return JsonResponse({'errors': form.errors}, status=400)
 
 @login_required
 def producto_detail_json(request, pk):
