@@ -4,5 +4,15 @@ from . import views
 app_name = 'pos'
 
 urlpatterns = [
+    # Vistas principales
     path('', views.pos_view, name='pos_view'),
+    
+    # APIs para el POS
+    path('api/buscar-productos/', views.buscar_productos, name='buscar_productos'),
+    path('api/producto/<int:producto_id>/', views.obtener_producto, name='obtener_producto'),
+    path('api/procesar-venta/', views.procesar_venta, name='procesar_venta'),
+    
+    # Vistas de ventas
+    path('venta/<int:venta_id>/', views.venta_detalle, name='venta_detalle'),
+    path('ventas/', views.listar_ventas, name='listar_ventas'),
 ]

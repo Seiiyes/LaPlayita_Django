@@ -1,12 +1,210 @@
 {% extends "core/base.html" %}
+{% load static %}
 
 {% block title %}Punto de Venta - La Playita{% endblock %}
 
+{% block extra_css %}
+<style>
+    .product-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+    }
+
+    .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .cart-items-container {
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        padding: 10px;
+    }
+
+    #cart-items {
+        margin-bottom: 0;
+    }
+
+    .badge {
+        font-size: 0.85em;
+    }
+
+    .modal-body {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <div class="text-center">
-        <h1 class="display-4">Punto de Venta (POS)</h1>
-        <p class="lead">Esta es la interfaz principal para realizar ventas.</p>
+<div class="container-fluid mt-4">
+    <div class="row">
+        <!-- Columna de Productos y Búsqueda -->
+        <div class="col-md-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="bi bi-grid-fill me-2"></i>Productos Disponibles</h4>
+                    <span class="badge bg-light text-primary">{{ productos.count }} productos</span>
+                </div>
+                <div class="card-body">
+                    <!-- Barra de Búsqueda de Productos -->
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" placeholder="Buscar producto por nombre o descripción..." aria-label="Buscar producto" id="product-search-input">
+                        <button class="btn btn-primary" type="button" id="product-search-button">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                        <button class="btn btn-outline-secondary" type="button" id="product-clear-button" title="Limpiar búsqueda">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    </div>
+
+                    <!-- Lista de Productos -->
+                    <div id="product-list" class="row row-cols-1 row-cols-md-3 g-3">
+                        {% if productos %}
+                            {% for producto in productos %}
+                                <div class="col">
+                                    <div class="card h-100 product-card">
+                                        <div class="card-body">
+                                            <h5 class="card-title">{{ producto.nombre }}</h5>
+                                            <p class="card-text text-muted">{{ producto.categoria.nombre }}</p>
+                                            {% if producto.descripcion %}
+                                                <p class="card-text small">{{ producto.descripcion }}</p>
+                                            {% endif %}
+                                            <p class="card-text fw-bold text-success">${{ producto.precio_unitario|floatformat:2 }}</p>
+                                            <p class="card-text small">
+                                                <span class="badge bg-info">Stock: {{ producto.stock_actual }}</span>
+                                            </p>
+                                            <button class="btn btn-sm btn-primary agregar-producto-btn" data-producto-id="{{ producto.id }}" data-nombre="{{ producto.nombre }}" data-precio="{{ producto.precio_unitario }}">
+                                                <i class="bi bi-plus-circle me-1"></i>Agregar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="col-12">
+                                <div class="alert alert-warning" role="alert">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>No hay productos disponibles en este momento.
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna de Carrito de Compras y Resumen -->
+        <div class="col-md-4">
+            <div class="card shadow-sm sticky-top" style="top: 20px;">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="bi bi-cart-fill me-2"></i>Carrito de Compras</h4>
+                    <span class="badge bg-light text-success" id="cart-item-count">0</span>
+                </div>
+                <div class="card-body">
+                    <div class="cart-items-container">
+                        <table class="table table-sm table-borderless">
+                            <tbody id="cart-items">
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">El carrito está vacío</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between fw-bold mb-2">
+                        <span>Subtotal:</span>
+                        <span id="cart-subtotal">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between fw-bold mb-3">
+                        <span>Impuestos (19%):</span>
+                        <span id="cart-tax">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between fw-bold fs-5 mb-3 p-2 bg-light rounded">
+                        <span>Total:</span>
+                        <span id="cart-total">$0.00</span>
+                    </div>
+                    <hr>
+                    <button class="btn btn-success w-100 mb-2" id="btn-procesar-venta">
+                        <i class="bi bi-cash-coin me-2"></i>Procesar Venta
+                    </button>
+                    <button class="btn btn-outline-danger w-100" id="btn-cancelar-venta">
+                        <i class="bi bi-x-circle me-2"></i>Vaciar Carrito
+                    </button>
+                </div>
+            </div>
+
+            <!-- Panel de Información -->
+            <div class="card mt-3">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Información</h6>
+                </div>
+                <div class="card-body small">
+                    <p><strong>Usuario:</strong> {{ request.user.get_full_name|default:request.user.username }}</p>
+                    <p><strong>Fecha:</strong> <span id="current-date"></span></p>
+                    <p><strong>Hora:</strong> <span id="current-time"></span></p>
+                    <hr>
+                    <a href="{% url 'pos:listar_ventas' %}" class="btn btn-sm btn-outline-primary w-100 mb-2">
+                        <i class="bi bi-list-check me-1"></i>Ver Historial de Ventas
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'pos/js/carrito.js' %}"></script>
+<script>
+    // Actualizar fecha y hora
+    function actualizarFechaHora() {
+        const ahora = new Date();
+        document.getElementById('current-date').textContent = ahora.toLocaleDateString('es-ES');
+        document.getElementById('current-time').textContent = ahora.toLocaleTimeString('es-ES');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        actualizarFechaHora();
+        setInterval(actualizarFechaHora, 1000);
+
+        // Agregar eventos a los botones de agregar producto
+        document.querySelectorAll('.agregar-producto-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const productoId = btn.dataset.productoId;
+                window.carritoPOS.abrirModalProducto(productoId);
+            });
+        });
+
+        // Evento para limpiar búsqueda
+        const btnLimpiar = document.getElementById('product-clear-button');
+        if (btnLimpiar) {
+            btnLimpiar.addEventListener('click', () => {
+                document.getElementById('product-search-input').value = '';
+                window.carritoPOS.cargarTodosLosProductos();
+            });
+        }
+
+        // Evento para procesar venta
+        const btnProcesar = document.getElementById('btn-procesar-venta');
+        if (btnProcesar) {
+            btnProcesar.addEventListener('click', () => {
+                window.carritoPOS.mostrarFormularioPago();
+            });
+        }
+
+        // Evento para vaciar carrito
+        const btnCancelar = document.getElementById('btn-cancelar-venta');
+        if (btnCancelar) {
+            btnCancelar.addEventListener('click', () => {
+                if (window.carritoPOS.carrito.length > 0) {
+                    if (confirm('¿Desea vaciar el carrito?')) {
+                        window.carritoPOS.vaciarCarrito();
+                    }
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}

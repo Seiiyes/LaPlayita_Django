@@ -10,7 +10,7 @@ urlpatterns = [
     path('dashboard/', core_views.dashboard_view, name='dashboard'),
     path('admin/', admin.site.urls),
 
-    path('users/', include('users.urls')), # Incluimos las URLs de la app users
+    path('users/', include('users.urls', namespace='users')), # Incluimos las URLs de la app users
 
     # Incluir URLs de otras apps con sus namespaces
     path('inventory/', include('inventory.urls', namespace='inventory')),

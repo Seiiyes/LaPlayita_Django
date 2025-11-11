@@ -23,7 +23,7 @@ class VentaDetalle(models.Model):
     subtotal = models.DecimalField(max_digits=12, decimal_places=2)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'venta_detalle'
 
 
@@ -56,7 +56,7 @@ class Pedido(models.Model):
         return f"Pedido #{self.id} - {self.cliente}"
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'pedido'
 
 class PedidoDetalle(models.Model):
@@ -74,5 +74,5 @@ class PedidoDetalle(models.Model):
         super().save(*args, **kwargs)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'pedido_detalle'
