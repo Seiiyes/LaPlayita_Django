@@ -6,7 +6,7 @@ from django.conf import settings
 class Venta(models.Model):
     fecha_venta = models.DateTimeField(default=timezone.now)
     canal_venta = models.CharField(max_length=20, default='Tienda')
-    cliente = models.ForeignKey('clients.Cliente', models.PROTECT)
+    cliente = models.ForeignKey('clients.Cliente', on_delete=models.PROTECT, null=True, blank=True)
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, models.PROTECT)
     pedido = models.ForeignKey('Pedido', null=True, blank=True, on_delete=models.SET_NULL, db_column='pedido_id')
     total_venta = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)

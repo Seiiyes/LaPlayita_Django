@@ -124,106 +124,35 @@ class CarritoPOS {
             const response = await fetch(`/pos/api/producto/${productoId}/`);
             const producto = await response.json();
 
+            // Si hay un error al obtener el producto, mostrar notificación y salir.
             if (producto.error) {
-                alert('Error: ' + producto.error);
+                this.mostrarNotificacion('Error: ' + producto.error, 'danger');
                 return;
             }
 
-            this.mostrarModalSeleccionarLote(producto);
+            // Validar si hay lotes disponibles.
+            if (!producto.lotes || producto.lotes.length === 0) {
+                this.mostrarNotificacion(`El producto "${this.escaparHTML(producto.nombre)}" no tiene lotes disponibles.`, 'warning');
+                return;
+            }
+
+            // Encontrar el primer lote con cantidad disponible.
+            const loteDisponible = producto.lotes.find(lote => lote.cantidad > 0);
+
+            // Si no se encuentra un lote con stock, notificar al usuario.
+            if (!loteDisponible) {
+                this.mostrarNotificacion(`No hay stock disponible para "${this.escaparHTML(producto.nombre)}".`, 'danger');
+                return;
+            }
+
+            // Agregar el producto al carrito con cantidad 1 y el lote encontrado.
+            const cantidadAAgregar = 1;
+            this.agregarAlCarrito(producto.id, producto.nombre, producto.precio, cantidadAAgregar, loteDisponible.id);
+
         } catch (error) {
             console.error('Error al obtener producto:', error);
-            alert('Error al obtener detalles del producto');
+            this.mostrarNotificacion('Error al obtener detalles del producto.', 'danger');
         }
-    }
-
-    mostrarModalSeleccionarLote(producto) {
-        // Crear modal para seleccionar lote y cantidad
-        let contenidoLotes = '';
-
-        if (producto.lotes.length === 0) {
-            contenidoLotes = '<p class="text-danger">No hay lotes disponibles</p>';
-        } else {
-            contenidoLotes = `
-                <div class="mb-3">
-                    <label for="lote-select" class="form-label">Seleccione Lote:</label>
-                    <select id="lote-select" class="form-control">
-                        ${producto.lotes.map(lote => `
-                            <option value="${lote.id}" data-cantidad="${lote.cantidad}">
-                                ${this.escaparHTML(lote.numero_lote)} - Vence: ${new Date(lote.fecha_caducidad).toLocaleDateString()} (${lote.cantidad} disponibles)
-                            </option>
-                        `).join('')}
-                    </select>
-                </div>
-            `;
-        }
-
-        const html = `
-            <div class="modal fade" id="modalProducto" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">${this.escaparHTML(producto.nombre)}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <p><strong>Precio:</strong> $${this.formatearMoneda(producto.precio)}</p>
-                            <p><strong>Stock Total:</strong> ${producto.stock}</p>
-                            <p><strong>Categoría:</strong> ${this.escaparHTML(producto.categoria)}</p>
-                            ${producto.descripcion ? `<p><strong>Descripción:</strong> ${this.escaparHTML(producto.descripcion)}</p>` : ''}
-                            
-                            <hr>
-                            
-                            ${contenidoLotes}
-                            
-                            <div class="mb-3">
-                                <label for="cantidad-input" class="form-label">Cantidad:</label>
-                                <input type="number" id="cantidad-input" class="form-control" value="1" min="1" max="${producto.stock}">
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-primary" id="btn-agregar-carrito">Agregar al Carrito</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // Remover modal anterior si existe
-        const modalAnterior = document.getElementById('modalProducto');
-        if (modalAnterior) {
-            modalAnterior.remove();
-        }
-
-        // Agregar nuevo modal
-        document.body.insertAdjacentHTML('beforeend', html);
-
-        const modal = new bootstrap.Modal(document.getElementById('modalProducto'));
-
-        // Configurar evento del botón agregar
-        document.getElementById('btn-agregar-carrito').addEventListener('click', () => {
-            const loteSelect = document.getElementById('lote-select');
-            const cantidadInput = document.getElementById('cantidad-input');
-
-            if (!loteSelect || loteSelect.options.length === 0) {
-                alert('No hay lotes disponibles');
-                return;
-            }
-
-            const loteId = parseInt(loteSelect.value);
-            const cantidad = parseInt(cantidadInput.value);
-            const cantidadDisponible = parseInt(loteSelect.selectedOptions[0].dataset.cantidad);
-
-            if (cantidad <= 0 || cantidad > cantidadDisponible) {
-                alert(`Ingrese una cantidad válida (máximo ${cantidadDisponible})`);
-                return;
-            }
-
-            this.agregarAlCarrito(producto.id, producto.nombre, producto.precio, cantidad, loteId);
-            modal.hide();
-        });
-
-        modal.show();
     }
 
     agregarAlCarrito(productoId, nombre, precio, cantidad, loteId) {
@@ -334,12 +263,39 @@ class CarritoPOS {
         totalSpan.textContent = `$${this.formatearMoneda(total)}`;
     }
 
-    mostrarFormularioPago() {
+    async mostrarFormularioPago() {
         if (this.carrito.length === 0) {
             alert('El carrito está vacío');
             return;
         }
 
+        // Obtener clientes desde la API - iniciar con opción por defecto
+        let clientesHTML = '<option value="">-- Sin Cliente --</option>';
+        
+        try {
+            console.log('Obteniendo clientes...');
+            const response = await fetch('/pos/api/obtener-clientes/');
+            console.log('Response status:', response.status);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Datos recibidos:', data);
+                
+                if (data.success && data.clientes && data.clientes.length > 0) {
+                    // Construir opciones de clientes
+                    data.clientes.forEach(cliente => {
+                        clientesHTML += `<option value="${cliente.id}">${this.escaparHTML(cliente.nombre)}</option>`;
+                    });
+                    console.log(`Se cargaron ${data.clientes.length} clientes`);
+                }
+            } else {
+                console.error('Error en respuesta:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Error al obtener clientes:', error);
+        }
+
+        // Crear el modal con los clientes obtenidos
         const formularioHTML = `
             <div class="modal fade" id="modalPago" tabindex="-1">
                 <div class="modal-dialog">
@@ -353,12 +309,7 @@ class CarritoPOS {
                                 <div class="mb-3">
                                     <label for="cliente-pago" class="form-label">Cliente (Opcional):</label>
                                     <select id="cliente-pago" class="form-control">
-                                        <option value="">-- Sin Cliente --</option>
-                                        ${document.getElementById('cliente-select') ? 
-                                            Array.from(document.getElementById('cliente-select').options).map(opt => 
-                                                `<option value="${opt.value}">${opt.text}</option>`
-                                            ).join('') : ''
-                                        }
+                                        ${clientesHTML}
                                     </select>
                                 </div>
 
@@ -403,14 +354,16 @@ class CarritoPOS {
             </div>
         `;
 
+        // Remover modal anterior si existe
         const modalAnterior = document.getElementById('modalPago');
         if (modalAnterior) {
             modalAnterior.remove();
         }
 
+        // Insertar nuevo modal
         document.body.insertAdjacentHTML('beforeend', formularioHTML);
 
-        // Actualizar totales en el modal
+        // Calcular y mostrar totales
         let subtotal = 0;
         this.carrito.forEach(item => {
             subtotal += item.precio * item.cantidad;
@@ -422,8 +375,10 @@ class CarritoPOS {
         document.getElementById('modal-impuesto').textContent = this.formatearMoneda(impuesto);
         document.getElementById('modal-total').textContent = this.formatearMoneda(total);
 
+        // Mostrar modal
         const modal = new bootstrap.Modal(document.getElementById('modalPago'));
-
+        
+        // Agregar evento al botón de confirmar
         document.getElementById('btn-confirmar-venta').addEventListener('click', () => {
             this.confirmarVenta();
             modal.hide();
@@ -437,8 +392,13 @@ class CarritoPOS {
         const metodoPago = document.getElementById('metodo-pago').value;
         const canalVenta = document.getElementById('canal-venta').value;
 
-        if (!metodoPago || !canalVenta) {
-            alert('Por favor complete todos los campos requeridos');
+        // Validar que los campos requeridos estén completos
+        if (!metodoPago || metodoPago.trim() === '') {
+            alert('Por favor seleccione un Método de Pago');
+            return;
+        }
+        if (!canalVenta || canalVenta.trim() === '') {
+            alert('Por favor seleccione un Canal de Venta');
             return;
         }
 

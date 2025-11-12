@@ -10,5 +10,5 @@ def cliente_list(request):
     """
     Vista para listar todos los clientes.
     """
-    clientes = Cliente.objects.all().order_by('-fecha_registro')
+    clientes = Cliente.objects.all().order_by('nombres')
     return render(request, 'clients/cliente_list.html', {'clientes': clientes})

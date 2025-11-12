@@ -81,7 +81,7 @@
                     <h5 class="mb-0"><i class="bi bi-calculator me-2"></i>Resumen de Pago</h5>
                 </div>
                 <div class="card-body">
-                    {% with subtotal=venta.total_venta|add:"0" impuesto=venta.total_venta|mul:0.19 %}
+                    {% with subtotal=venta.total_venta|add:"0" %}
                         <div class="d-flex justify-content-between mb-2">
                             <span>Subtotal:</span>
                             <span>${{ subtotal|floatformat:2 }}</span>

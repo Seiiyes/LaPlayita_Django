@@ -21,7 +21,7 @@
                             <th scope="col">Nombre Completo</th>
                             <th scope="col">Email</th>
                             <th scope="col">Teléfono</th>
-                            <th scope="col">Fecha de Registro</th>
+                            <th scope="col">Documento</th>
                             <th scope="col">Acciones</th>
                         </tr>
                     </thead>
@@ -31,7 +31,7 @@
                             <td>{{ cliente.nombres }} {{ cliente.apellidos|default:'' }}</td>
                             <td>{{ cliente.correo|default:'No especificado' }}</td>
                             <td>{{ cliente.telefono|default:'No especificado' }}</td>
-                            <td>{{ cliente.fecha_registro|date:"d/m/Y" }}</td>
+                            <td>{{ cliente.documento|default:'-' }}</td>
                             <td>
                                 <a href="#" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil-square"></i></a>
                                 <a href="#" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>

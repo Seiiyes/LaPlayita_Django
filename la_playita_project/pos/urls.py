@@ -10,6 +10,7 @@ urlpatterns = [
     # APIs para el POS
     path('api/buscar-productos/', views.buscar_productos, name='buscar_productos'),
     path('api/producto/<int:producto_id>/', views.obtener_producto, name='obtener_producto'),
+    path('api/obtener-clientes/', views.obtener_clientes, name='obtener_clientes'),
     path('api/procesar-venta/', views.procesar_venta, name='procesar_venta'),
     
     # Vistas de ventas

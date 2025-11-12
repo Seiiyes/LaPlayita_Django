@@ -7,8 +7,8 @@ class Cliente(models.Model):
     apellidos = models.CharField(max_length=50)
     correo = models.EmailField(max_length=60)
     telefono = models.CharField(max_length=25)
-    # Fecha de registro en SQL se maneja con default current_timestamp, mantener lectura/escritura
-    fecha_registro = models.DateTimeField(db_column='fecha_registro', blank=True, null=True)
+    # Nota: fecha_registro existe en la tabla SQL pero se maneja manualmente
+    # fecha_registro = models.DateTimeField(db_column='fecha_registro', blank=True, null=True)
 
     def __str__(self):
         return f"{self.nombres} {self.apellidos}"
