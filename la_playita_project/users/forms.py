@@ -29,5 +29,5 @@ class CustomPasswordResetForm(PasswordResetForm):
         """Given an email, return matching user(s) who should receive a reset."""
         return Usuario.objects.filter(
             email__iexact=email,
-            estado='activo',
+            estado__in=['activo', 'inactivo'],
         )

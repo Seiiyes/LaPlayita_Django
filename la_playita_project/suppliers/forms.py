@@ -44,3 +44,13 @@ ReabastecimientoDetalleFormSet = forms.inlineformset_factory(
     can_delete=True,
     can_delete_extra=True
 )
+
+class ProductoAjaxForm(forms.ModelForm):
+    class Meta:
+        model = Producto
+        fields = ['nombre', 'categoria', 'precio_unitario', 'stock_minimo', 'descripcion']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            field.widget.attrs.update({'class': 'form-control'})

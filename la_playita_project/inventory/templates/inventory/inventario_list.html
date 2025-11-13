@@ -339,13 +339,18 @@
             // Validar campos requeridos
             const requiredFields = ['nombre', 'categoria', 'precio_unitario', 'stock_minimo'];
             let hasError = false;
+            
             requiredFields.forEach(field => {
-                const input = formData.get(field);
-                if (!input || input.trim() === '') {
+                const inputElement = document.getElementById(`id_${field}`);
+                if (!inputElement || !inputElement.value || inputElement.value.trim() === '') {
                     hasError = true;
-                    document.getElementById(`id_${field}`).classList.add('is-invalid');
+                    if (inputElement) {
+                        inputElement.classList.add('is-invalid');
+                    }
                 } else {
-                    document.getElementById(`id_${field}`).classList.remove('is-invalid');
+                    if (inputElement) {
+                        inputElement.classList.remove('is-invalid');
+                    }
                 }
             });
 

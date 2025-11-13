@@ -14,7 +14,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from users.decorators import check_user_role
 from .models import Proveedor, Reabastecimiento, ReabastecimientoDetalle
 from inventory.models import Producto, Categoria, Lote, MovimientoInventario
-from inventory.forms import ReabastecimientoForm, ReabastecimientoDetalleFormSet
+from inventory.forms import ReabastecimientoForm, ReabastecimientoDetalleFormSet, ProductoForm
 
 # --- Vistas de Proveedores ---
 
@@ -318,14 +318,21 @@ def producto_create_ajax(request):
     """Crear un producto vía AJAX."""
     try:
         data = json.loads(request.body)
-        producto = Producto.objects.create(
-            nombre=data['nombre'], categoria_id=data['categoria'], precio_unitario=data['precio_unitario'],
-            stock_minimo=data['stock_minimo'], stock_actual=0, costo_promedio=0,
-            descripcion=data.get('descripcion', '')
-        )
-        return JsonResponse({
-            'id': producto.id, 'nombre': producto.nombre,
-            'precio_unitario': float(producto.precio_unitario or 0)
-        })
+        form = ProductoForm(data)
+        if form.is_valid():
+            producto = form.save(commit=False)
+            producto.stock_actual = 0
+            producto.costo_promedio = 0
+            producto.save()
+            return JsonResponse({
+                'id': producto.id,
+                'nombre': producto.nombre,
+                'precio_unitario': float(producto.precio_unitario or 0)
+            })
+        else:
+            errors = '<br>'.join([f'**{field}:** {error[0]}' for field, error in form.errors.items()])
+            return JsonResponse({'message': f'Error de Validación<br>{errors}'}, status=400)
+    except json.JSONDecodeError:
+        return JsonResponse({'message': 'Error: Datos JSON inválidos.'}, status=400)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        return JsonResponse({'message': f'Error inesperado: {str(e)}'}, status=500)

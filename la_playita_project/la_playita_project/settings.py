@@ -193,7 +193,7 @@ MIGRATION_MODULES = DisableMigrations()
 # A continuación se muestra un ejemplo usando Gmail.
 
 # 1. CAMBIA EL BACKEND:
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend' # Comenta o elimina esta línea
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend' # Modo consola para debug
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 # 2. CONFIGURA LOS DETALLES DE TU SERVIDOR SMTP (ejemplo para Gmail):
@@ -203,9 +203,4 @@ EMAIL_USE_TLS = True
 
 # 3. INGRESA TUS CREDENCIALES (¡No las guardes directamente en el código en producción!):
 EMAIL_HOST_USER = 'soporte.laplayita@gmail.com'
-EMAIL_HOST_PASSWORD = 'jvcizyxemizesuwr'
-
-# NOTA IMPORTANTE SOBRE GMAIL:
-# Necesitarás generar una "Contraseña de Aplicación" para tu cuenta de Google.
-# No uses tu contraseña normal. Lee cómo hacerlo aquí:
-# https://support.google.com/accounts/answer/185833
+EMAIL_HOST_PASSWORD = 'mafqcymwowaxzvdb'

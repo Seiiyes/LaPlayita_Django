@@ -157,7 +157,12 @@ def producto_create(request):
 @require_POST
 @check_user_role(allowed_roles=['Administrador', 'Vendedor'])
 def producto_create_ajax(request):
-    form = ProductoForm(request.POST)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'errors': 'JSON inválido'}, status=400)
+
+    form = ProductoForm(data)
     if form.is_valid():
         producto = form.save()
         return JsonResponse({
@@ -224,6 +229,20 @@ def producto_delete(request, pk):
 @require_POST
 @check_user_role(allowed_roles=['Administrador', 'Vendedor'])
 def categoria_create(request):
+    if 'application/json' in request.headers.get('Content-Type', ''):
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'JSON inválido.'}, status=400)
+        
+        form = CategoriaForm(data)
+        if form.is_valid():
+            categoria = form.save()
+            return JsonResponse({'id': categoria.pk, 'nombre': categoria.nombre}, status=201)
+        else:
+            return JsonResponse({'errors': form.errors}, status=400)
+
+    # Fallback para el comportamiento no-AJAX si aún es necesario
     form = CategoriaForm(request.POST)
     if form.is_valid():
         form.save()
