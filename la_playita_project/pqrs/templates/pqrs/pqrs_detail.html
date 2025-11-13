@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="container-lg mt-4">
-    <a href="{% url 'pqrs_list' %}" class="btn btn-secondary mb-3">
+    <a href="{% url 'pqrs:pqrs_list' %}" class="btn btn-secondary mb-3">
         <i class="bi bi-arrow-left"></i> Volver al Listado
     </a>
 
@@ -33,7 +33,7 @@
                     <h5 class="mb-0">Actualizar PQRS</h5>
                 </div>
                 <div class="card-body">
-                    <form method="post" action="{% url 'pqrs_update' pqrs.id %}">
+                    <form method="post" action="{% url 'pqrs:pqrs_update' pqrs.id %}">
                         {% csrf_token %}
                         {{ form.as_p }}
                         <button type="submit" class="btn btn-primary">Actualizar</button>

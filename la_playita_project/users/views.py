@@ -28,7 +28,7 @@ def register_view(request):
         if form.is_valid():
             form.save()
             messages.success(request, '¡Registro exitoso! Ahora puedes iniciar sesión.')
-            return redirect('login')
+            return redirect('users:login')
     else:
         form = VendedorRegistrationForm()
     return render(request, 'registration/register.html', {'form': form})

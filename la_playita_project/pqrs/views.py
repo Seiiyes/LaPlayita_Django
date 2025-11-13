@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.urls import reverse
 from .models import Pqrs, PqrsHistorial
 from .forms import PqrsForm, PqrsUpdateForm
-# from clients.models import Cliente # Eliminado
+from clients.models import Cliente
 from users.decorators import check_user_role
 
 
@@ -20,18 +20,17 @@ def pqrs_list(request):
         form = PqrsForm(request.POST)
         if form.is_valid():
             pqrs = form.save(commit=False)
-            # --- LÓGICA DE CLIENTE ELIMINADA ---
-            # cliente_id = request.POST.get('cliente')
-            # try:
-            #     cliente = Cliente.objects.get(id=cliente_id)
-            #     pqrs.cliente = cliente
-            #     pqrs.usuario = request.user
-            #     pqrs.fecha_creacion = timezone.now()
-            #     pqrs.save()
-            messages.success(request, 'PQRS creado exitosamente (sin cliente).')
-            return redirect(reverse('pqrs:pqrs_list'))
-            # except Cliente.DoesNotExist:
-            #     messages.error(request, f'No se encontró un cliente con el ID {cliente_id}.')
+            cliente_id = request.POST.get('cliente')
+            try:
+                cliente = Cliente.objects.get(id=cliente_id)
+                pqrs.cliente = cliente
+                pqrs.usuario = request.user
+                pqrs.fecha_creacion = timezone.now()
+                pqrs.save()
+                messages.success(request, 'PQRS creado exitosamente.')
+                return redirect(reverse('pqrs:pqrs_list'))
+            except Cliente.DoesNotExist:
+                messages.error(request, f'No se encontró un cliente con el ID {cliente_id}.')
         else:
             for field, errors in form.errors.items():
                 for error in errors:
@@ -42,18 +41,18 @@ def pqrs_list(request):
     pqrs_query = Pqrs.objects.select_related('cliente', 'usuario').order_by('-fecha_creacion')
     query = request.GET.get('q')
     if query:
-        # --- BÚSQUEDA POR CLIENTE ELIMINADA ---
         pqrs_query = pqrs_query.filter(            
+            models.Q(cliente__nombres__icontains=query) |
+            models.Q(cliente__apellidos__icontains=query) |
             models.Q(tipo__icontains=query) |
             models.Q(estado__icontains=query)
         )
 
-    # --- LISTA DE CLIENTES ELIMINADA ---
-    # clientes = Cliente.objects.all()
+    clientes = Cliente.objects.all()
     context = {
         'pqrs': pqrs_query,
         'form': form,
-        # 'clientes': clientes,
+        'clientes': clientes,
     }
     return render(request, 'pqrs/pqrs_list.html', context)
 

@@ -141,8 +141,8 @@ STATIC_URL = 'static/'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = '/'
 # URL de login usada por @login_required y redirecciones automáticas.
-# Apunta a la ruta global definida en la URL raíz: path('login/', CustomLoginView.as_view(), name='login')
-LOGIN_URL = '/login/'
+# Apunta a la vista de login dentro de la app 'users'.
+LOGIN_URL = '/users/login/'
 
 # Session Duration Settings
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Expire session when browser is closed

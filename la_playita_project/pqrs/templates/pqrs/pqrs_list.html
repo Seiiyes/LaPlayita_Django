@@ -42,11 +42,11 @@
                                 <td><span class="badge bg-info">{{ p.get_estado_display }}</span></td>
                                 <td>{{ p.fecha_creacion|date:"d/m/Y H:i" }}</td>
                                 <td>
-                                    <a href="{% url 'pqrs_detail' p.id %}" class="btn btn-sm btn-info">
+                                    <a href="{% url 'pqrs:pqrs_detail' p.id %}" class="btn btn-sm btn-info">
                                         <i class="bi bi-eye"></i> Ver
                                     </a>
                                     {% if user|has_role:'Administrador' %}
-                                    <button type="button" class="btn btn-sm btn-danger" onclick="eliminarPqrs('{{ p.id }}')">
+                                    <button type="button" class="btn btn-sm btn-danger" onclick="eliminarPqrs('{{ p.id }}', '{% url 'pqrs:pqrs_delete' p.id %}')">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                     {% endif %}
@@ -63,7 +63,7 @@
                 <div class="p-3 border-bottom">
                     <h3 class="text-success m-0">Nuevo PQRS</h3>
                 </div>
-                <form method="post" action="{% url 'pqrs_list' %}" id="pqrsForm" class="d-flex flex-column h-100 p-3">
+                <form method="post" action="{% url 'pqrs:pqrs_list' %}" id="pqrsForm" class="d-flex flex-column h-100 p-3">
                     {% csrf_token %}
                     <div class="mb-3">
                         <label for="cliente" class="form-label">Cliente</label>
@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Function to handle client creation
     async function guardarNuevoCliente(data) {
         try {
-            const response = await fetch("{% url 'cliente_create_ajax' %}", {
+            const response = await fetch("{% url 'clients:cliente_create_ajax' %}", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -208,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // Function to handle PQRS deletion
-    window.eliminarPqrs = async function(pqrsId) {
+    window.eliminarPqrs = async function(pqrsId, deleteUrl) {
         const result = await Swal.fire({
             title: '¿Estás seguro?',
             text: "¡No podrás revertir esto!",
@@ -222,7 +222,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (result.isConfirmed) {
             try {
-                const response = await fetch(`/pqrs/eliminar/${pqrsId}/`, {
+                const response = await fetch(deleteUrl, {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
