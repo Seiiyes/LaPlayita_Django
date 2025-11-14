@@ -5,10 +5,14 @@ from django.views.decorators.cache import never_cache
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.core.mail import EmailMultiAlternatives
+from django.templatetags.static import static
+from django.contrib.staticfiles.finders import find as find_static
+import os
 from datetime import datetime
 from django.utils import timezone
 from django.db import transaction, connection
 import json
+from email.mime.image import MIMEImage # Import MIMEImage
 
 from django.core.serializers.json import DjangoJSONEncoder
 from users.decorators import check_user_role
@@ -52,7 +56,7 @@ def proveedor_create_ajax(request):
 
 # --- Vistas de Reabastecimientos ---
 
-def send_supply_request_email(reabastecimiento):
+def send_supply_request_email(request, reabastecimiento):
     proveedor = reabastecimiento.proveedor
     if proveedor.correo:
         subject = f'Solicitud de Reabastecimiento #{reabastecimiento.id}'
@@ -60,11 +64,26 @@ def send_supply_request_email(reabastecimiento):
             'reabastecimiento': reabastecimiento,
             'proveedor_nombre': proveedor.nombre_empresa,
             'current_year': datetime.now().year,
+            'logo_src': 'cid:logo', # Use cid for embedded image
         }
-        html_content = render_to_string('inventory/emails/reabastecimiento_solicitud.html', context)
+        html_content = render_to_string('suppliers/emails/reabastecimiento_solicitud.html', context)
         text_content = f"Estimado/a {proveedor.nombre_empresa}, se ha generado una nueva solicitud de reabastecimiento."
+        
         msg = EmailMultiAlternatives(subject, text_content, None, [proveedor.correo])
         msg.attach_alternative(html_content, "text/html")
+
+        # Attach logo image
+        logo_path = find_static('core/img/la-playita-logo.png')
+        print(f"DEBUG: logo_path found by find_static: {logo_path}")
+        if logo_path and os.path.exists(logo_path):
+            print(f"DEBUG: logo file exists at: {logo_path}")
+            with open(logo_path, 'rb') as f:
+                logo_image = MIMEImage(f.read())
+                logo_image.add_header('Content-ID', '<logo>') # Set Content-ID
+                msg.attach(logo_image)
+        else:
+            print(f"DEBUG: logo file NOT found or path is None. logo_path: {logo_path}, os.path.exists: {os.path.exists(logo_path) if logo_path else 'N/A'}")
+        
         msg.send()
 
 @never_cache
@@ -150,7 +169,7 @@ def reabastecimiento_create(request):
                         })
 
                 if reab.estado == Reabastecimiento.ESTADO_SOLICITADO:
-                    send_supply_request_email(reab)
+                    send_supply_request_email(request, reab)
 
                 return JsonResponse({
                     'id': reab.id, 'fecha': reab.fecha.isoformat(),
@@ -218,7 +237,7 @@ def reabastecimiento_update(request, pk):
                 reab_instance.save()
 
                 if reab_instance.estado == Reabastecimiento.ESTADO_SOLICITADO:
-                    send_supply_request_email(reab_instance)
+                    send_supply_request_email(request, reab_instance)
 
                 return JsonResponse({
                     'id': reab_instance.id, 'fecha': reab_instance.fecha.isoformat(),
