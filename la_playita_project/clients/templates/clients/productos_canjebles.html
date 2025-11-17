@@ -1,0 +1,61 @@
+{% extends "core/base.html" %}
+{% block title %}Productos Canjeables - La Playita{% endblock %}
+
+{% block extra_css %}
+<style>
+    .producto-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        height: 100%;
+    }
+    .producto-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .puntos-badge {
+        background-color: #ffc107;
+        color: #000;
+        font-weight: bold;
+        padding: 10px 15px;
+        border-radius: 20px;
+        font-size: 1.2em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4"><i class="bi bi-shop me-2"></i>Catálogo de Productos Canjeables</h2>
+
+    {% if productos %}
+        <div class="row">
+            {% for producto in productos %}
+                <div class="col-md-4 mb-4">
+                    <div class="card producto-card shadow-sm">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">{{ producto.nombre }}</h5>
+                            {% if producto.descripcion %}
+                                <p class="card-text text-muted small">{{ producto.descripcion }}</p>
+                            {% endif %}
+                            <div class="puntos-badge mb-3">
+                                {{ producto.puntos_requeridos }} pts
+                            </div>
+                            <p class="mb-2">
+                                <strong>Stock:</strong> 
+                                {% if producto.stock_disponible > 0 %}
+                                    <span class="text-success">{{ producto.stock_disponible }} disponible(s)</span>
+                                {% else %}
+                                    <span class="text-danger">Agotado</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            <i class="bi bi-info-circle me-2"></i>No hay productos disponibles para canjear en este momento.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -89,6 +89,19 @@
                             </div>
                         {% endif %}
                     </div>
+                    <hr>
+                    <!-- Selector de Cliente + botón para cliente nuevo -->
+                    <div class="input-group mb-3">
+                        <select id="cliente-select" name="cliente" class="form-control">
+                            <option value="">Consumidor Final</option>
+                            {% for cliente in clientes %}
+                                <option value="{{ cliente.id }}">{{ cliente.nombres }} {{ cliente.apellidos }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-agregar-cliente">
+                            <i class="bi bi-person-plus"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -152,6 +165,45 @@
     </div>
 </div>
 
+<!-- Modal para registrar cliente nuevo -->
+<div class="modal fade" id="modal-agregar-cliente" tabindex="-1" aria-labelledby="modalClienteLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="form-cliente-nuevo">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalClienteLabel"><i class="bi bi-person-plus me-2"></i>Registrar Cliente Nuevo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label for="nuevo-documento" class="form-label">Documento</label>
+            <input type="text" id="nuevo-documento" name="documento" class="form-control" required>
+          </div>
+          <div class="mb-2">
+            <label for="nuevo-nombres" class="form-label">Nombres</label>
+            <input type="text" id="nuevo-nombres" name="nombres" class="form-control" required>
+          </div>
+          <div class="mb-2">
+            <label for="nuevo-apellidos" class="form-label">Apellidos</label>
+            <input type="text" id="nuevo-apellidos" name="apellidos" class="form-control" required>
+          </div>
+          <div class="mb-2">
+            <label for="nuevo-correo" class="form-label">Correo</label>
+            <input type="email" id="nuevo-correo" name="correo" class="form-control" required>
+          </div>
+          <div class="mb-2">
+            <label for="nuevo-telefono" class="form-label">Teléfono</label>
+            <input type="text" id="nuevo-telefono" name="telefono" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-1"></i>Registrar</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -205,6 +257,43 @@
                 }
             });
         }
+    });
+
+    // AJAX para registrar cliente nuevo y actualizar el select
+    document.getElementById('form-cliente-nuevo').addEventListener('submit', function(e){
+        e.preventDefault();
+        var datos = {
+            documento: document.getElementById('nuevo-documento').value,
+            nombres: document.getElementById('nuevo-nombres').value,
+            apellidos: document.getElementById('nuevo-apellidos').value,
+            correo: document.getElementById('nuevo-correo').value,
+            telefono: document.getElementById('nuevo-telefono').value
+        };
+        fetch('/pos/api/crear-cliente/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(datos)
+        }).then(r => r.json()).then(data => {
+            if(data.success){
+                // Añade el cliente al select y lo selecciona
+                var s = document.getElementById('cliente-select');
+                var opcion = document.createElement('option');
+                opcion.value = data.cliente_id;
+                opcion.textContent = datos.nombres + ' ' + datos.apellidos;
+                s.appendChild(opcion);
+                s.value = data.cliente_id;
+                // Cierras el modal
+                var modalEl = document.getElementById('modal-agregar-cliente');
+                var modal = bootstrap.Modal.getInstance(modalEl);
+                modal.hide();
+                alert('Cliente registrado correctamente');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
     });
 </script>
 {% endblock %}

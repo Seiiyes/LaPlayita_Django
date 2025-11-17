@@ -1,0 +1,205 @@
+{% extends "core/base.html" %}
+{% block title %}Mi Panel de Puntos - La Playita{% endblock %}
+
+{% block extra_css %}
+<style>
+    .puntos-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 30px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .puntos-numero {
+        font-size: 3em;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    .producto-canjeable {
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+    }
+    .producto-canjeable:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .puntos-badge {
+        background-color: #ffc107;
+        color: #000;
+        font-weight: bold;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.9em;
+    }
+    .transaccion-item {
+        padding: 10px 0;
+        border-bottom: 1px solid #eee;
+    }
+    .transaccion-item:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    
+    <!-- Tarjeta de Puntos -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="puntos-card">
+                <h5>Tus Puntos Disponibles</h5>
+                <div class="puntos-numero">{{ puntos_totales }}</div>
+                <p class="mb-0">Puntos acumulados</p>
+                <small>1 punto = $15.000 en compras</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Columna izquierda: Transacciones y Canjes -->
+        <div class="col-md-6">
+            <!-- Últimas Transacciones -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Últimas Transacciones</h5>
+                </div>
+                <div class="card-body">
+                    {% if transacciones %}
+                        {% for trans in transacciones %}
+                            <div class="transaccion-item">
+                                <div class="d-flex justify-content-between">
+                                    <span>
+                                        <i class="bi bi-plus-circle text-success"></i>
+                                        {{ trans.descripcion }}
+                                    </span>
+                                    <span class="puntos-badge">+{{ trans.puntos }}</span>
+                                </div>
+                                <small class="text-muted">{{ trans.fecha_transaccion|date:"d/m/Y H:i" }}</small>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No hay transacciones aún</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Mis Canjes -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-gift me-2"></i>Mis Canjes Recientes</h5>
+                </div>
+                <div class="card-body">
+                    {% if canjes %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Estado</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for canje in canjes %}
+                                        <tr>
+                                            <td>
+                                                {% with producto=canje.producto %}
+                                                    {{ producto.nombre }}
+                                                {% endwith %}
+                                            </td>
+                                            <td>
+                                                {% if canje.estado == "pendiente" %}
+                                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                                {% elif canje.estado == "completado" %}
+                                                    <span class="badge bg-success">Entregado</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">Cancelado</span>
+                                                {% endif %}
+                                            </td>
+                                            <td><small>{{ canje.fecha_canje|date:"d/m/Y" }}</small></td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No tienes canjes aún</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna derecha: Productos Canjeables -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-shop me-2"></i>Productos Disponibles para Canjear</h5>
+                </div>
+                <div class="card-body">
+                    {% if productos %}
+                        <div class="row">
+                            {% for producto in productos %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="card producto-canjeable h-100">
+                                        <div class="card-body text-center">
+                                            <h6 class="card-title">{{ producto.nombre }}</h6>
+                                            {% if producto.descripcion %}
+                                                <p class="card-text small text-muted">{{ producto.descripcion|truncatewords:10 }}</p>
+                                            {% endif %}
+                                            <div class="puntos-badge d-block mb-2">
+                                                {{ producto.puntos_requeridos }} pts
+                                            </div>
+                                            <small class="text-success">Stock: {{ producto.stock_disponible }}</small>
+                                            <button class="btn btn-sm btn-primary w-100 mt-2" 
+                                                    onclick="canjearProducto({{ producto.id }}, '{{ cliente.id }}', {{ puntos_totales }}, {{ producto.puntos_requeridos }})"
+                                                    {% if puntos_totales < producto.puntos_requeridos %}disabled{% endif %}>
+                                                Canjear
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No hay productos disponibles para canjear</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function canjearProducto(productoId, clienteId, puntosActuales, puntosRequeridos) {
+    if (puntosActuales < puntosRequeridos) {
+        alert('No tienes suficientes puntos para canjear este producto');
+        return;
+    }
+    
+    if (confirm('¿Deseas canjear este producto?')) {
+        fetch(`{% url 'clients:canjear_producto' 0 %}`.replace('0', productoId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                cliente_id: clienteId
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.mensaje);
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(err => alert('Error al procesar el canje'));
+    }
+}
+</script>
+{% endblock %}

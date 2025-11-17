@@ -109,10 +109,51 @@
                         <button onclick="window.print()" class="btn btn-outline-info">
                             <i class="bi bi-printer me-2"></i>Imprimir
                         </button>
+
+                       {% if venta.cliente and venta.cliente.nombres != "Consumidor" and venta.cliente.apellidos != "Final" %}
+    <a id="btn-enviar-factura" href="{% url 'pos:enviar_factura' venta.id %}" class="btn btn-warning">
+        <i class="bi bi-envelope-fill me-2"></i>Enviar por Correo
+    </a>
+{% endif %}
+
+
+
+                        <!-- BOTÓN DE DESCARGA DE FACTURA PDF -->
+                        <a href="{% url 'pos:descargar_factura' venta.id %}" class="btn btn-success">
+                            <i class="bi bi-download me-2"></i>Descargar Factura
+                        </a>
+                        <!-- FIN BOTÓN -->
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+<div id="toast-confirm" class="toast align-items-center text-bg-success border-0 position-fixed top-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true" style="z-index: 9999; display:none;">
+  <div class="d-flex">
+    <div class="toast-body">
+      <i class="bi bi-check-circle-fill me-2"></i> ¡Factura enviada correctamente!
+    </div>
+    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+  </div>
+</div>
+<script>
+document.getElementById('btn-enviar-factura').addEventListener('click', function(e) {
+    e.preventDefault();
+    fetch(this.href)
+        .then(response => response.json())
+        .then(data => {
+            if(data.success){
+                var toastEl = document.getElementById('toast-confirm');
+                toastEl.style.display = 'block';
+                setTimeout(function() {
+                  toastEl.style.display = 'none';
+                }, 3500);
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+});
+</script>
+
 {% endblock %}

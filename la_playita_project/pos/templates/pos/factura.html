@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Factura de Venta</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .details { margin-bottom: 20px; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th, .table td { border: 1px solid #ddd; padding: 8px; }
+        .table th { background-color: #f2f2f2; }
+        .footer { margin-top: 20px; text-align: right; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>La Playita</h2>
+        <p>Factura de Venta #{{ venta.id }}</p>
+    </div>
+    <div class="details">
+        <p><strong>Fecha:</strong> {{ venta.fecha_venta|date:"d/m/Y H:i" }}</p>
+        <p><strong>Usuario:</strong> {{ venta.usuario.get_full_name|default:venta.usuario.username }}</p>
+        <p><strong>Cliente:</strong> {{ venta.cliente.nombres }} {{ venta.cliente.apellidos }}</p>
+        <p><strong>Método de Pago:</strong> {{ pago.metodo_pago|title }}</p>
+        <p><strong>Canal de Venta:</strong> {{ venta.canal_venta|title }}</p>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Lote</th>
+                <th>Cantidad</th>
+                <th>Precio Unitario</th>
+                <th>Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for detalle in detalles %}
+            <tr>
+                <td>{{ detalle.producto.nombre }}</td>
+                <td>{{ detalle.lote.numero_lote }}</td>
+                <td>{{ detalle.cantidad }}</td>
+                <td>${{ detalle.producto.precio_unitario|floatformat:2 }}</td>
+                <td>${{ detalle.subtotal|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="footer">
+        <p><strong>Subtotal:</strong> ${{ venta.total_venta|floatformat:2 }}</p>
+        <p><strong>Impuestos (19%):</strong> ${{ impuesto|floatformat:2 }}</p>
+        <p><strong>Total:</strong> ${{ venta.total_venta|floatformat:2 }}</p>
+    </div>
+</body>
+</html>
