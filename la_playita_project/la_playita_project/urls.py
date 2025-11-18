@@ -10,15 +10,24 @@ urlpatterns = [
     path('dashboard/', core_views.dashboard_view, name='dashboard'),
     path('admin/', admin.site.urls),
 
-    path('users/', include('users.urls', namespace='users')), # Incluimos las URLs de la app users
+    # Usuarios
+    path('users/', include('users.urls', namespace='users')),
 
-    # Incluir URLs de otras apps con sus namespaces
+    # Inventario
     path('inventory/', include('inventory.urls', namespace='inventory')),
+
+    # Clientes
     path('clients/', include('clients.urls', namespace='clients')),
+
+    # Proveedores
     path('suppliers/', include('suppliers.urls', namespace='suppliers')),
+
+    # Punto de venta
     path('pos/', include('pos.urls', namespace='pos')),
+
+    # PQRS
     path('pqrs/', include('pqrs.urls', namespace='pqrs')),
 
-    # Ruta para la página de reportes
-    path('reportes/', core_views.reportes_home_view, name='reportes_home'),
+    # Reportes
+    path('reportes/', include('reportes.urls', namespace='reportes')),
 ]

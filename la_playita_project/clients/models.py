@@ -1,15 +1,23 @@
 from django.db import models
+from django.conf import settings  # <--- Esta línea es clave
 
 class Cliente(models.Model):
-    documento = models.CharField(max_length=20, unique=True)
-    nombres = models.CharField(max_length=50)
-    apellidos = models.CharField(max_length=50)
-    correo = models.EmailField(max_length=60)
-    telefono = models.CharField(max_length=25)
-    puntos_totales = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='cliente',
+        null=True, blank=True
+    )
+    nombres = models.CharField(max_length=100)
+    apellidos = models.CharField(max_length=100)
+    documento = models.CharField(max_length=30, unique=True)
+    telefono = models.CharField(max_length=30)
+    correo = models.EmailField(unique=True)
+    puntos_totales = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # <--- AÑADE ESTA LÍNEA SI USAS puntos_totales
 
     def __str__(self):
         return f"{self.nombres} {self.apellidos}"
+
 
     class Meta:
         verbose_name = 'Cliente'

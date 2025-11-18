@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'pqrs.apps.PqrsConfig',
     'suppliers.apps.SuppliersConfig',
     'clients.apps.ClientsConfig',
+    
 ]
 
 MIDDLEWARE = [

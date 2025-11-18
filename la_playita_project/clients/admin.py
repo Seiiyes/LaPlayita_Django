@@ -1,11 +1,12 @@
 from django.contrib import admin
 from .models import Cliente, PuntosFidelizacion, ProductoCanjeble, CanjeProducto
+# Agrega aquí cualquier modelo más que uses en el admin
 
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
-    list_display = ('nombres', 'apellidos', 'documento', 'puntos_totales')
-    list_filter = ('puntos_totales',)
-    search_fields = ('nombres', 'apellidos', 'documento', 'correo')
+    list_display = ("nombres", "apellidos", "documento", "puntos_totales")  # Asegúrate que puntos_totales existe
+    list_filter = ("nombres", "apellidos")  # Elimina puntos_totales si no es un campo real
+    search_fields = ("nombres", "apellidos", "documento", "correo")
 
 @admin.register(PuntosFidelizacion)
 class PuntosFidelizacionAdmin(admin.ModelAdmin):
