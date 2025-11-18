@@ -1,0 +1,94 @@
+{% extends "core/base.html" %}
+
+{% block title %}Reporte de Ventas{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4"><i class="bi bi-graph-up-arrow me-2"></i>Reporte de Ventas</h2>
+
+    <!-- Formulario de filtro por fechas -->
+    <form method="get" class="row g-3 mb-4">
+        <div class="col-md-4">
+            <label for="fecha_inicio" class="form-label">Fecha Inicio</label>
+            <input type="date" id="fecha_inicio" name="fecha_inicio" class="form-control" value="{{ request.GET.fecha_inicio }}">
+        </div>
+        <div class="col-md-4">
+            <label for="fecha_fin" class="form-label">Fecha Fin</label>
+            <input type="date" id="fecha_fin" name="fecha_fin" class="form-control" value="{{ request.GET.fecha_fin }}">
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary me-2">Filtrar</button>
+            <button type="submit" name="descargar" value="1" class="btn btn-success">Descargar CSV</button>
+        </div>
+    </form>
+
+    <!-- Resumen de ventas del día -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Ventas del Día: ${{ total_ventas_hoy|floatformat:2 }}</h5>
+        </div>
+    </div>
+
+    <!-- Tabla de ventas del día -->
+    <div class="table-responsive mb-4">
+        <h5>Ventas del Día</h5>
+        <table class="table table-bordered table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for venta in ventas_hoy %}
+                <tr>
+                    <td>{{ venta.id }}</td>
+                    <td>{{ venta.fecha_venta|date:"d/m/Y H:i" }}</td>
+                    <td>{{ venta.cliente.nombres }} {{ venta.cliente.apellidos }}</td>
+                    <td>${{ venta.total_venta|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center">No hay ventas registradas hoy.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Total de Ventas: ${{ total_ventas|floatformat:2 }}</h5>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for venta in ventas %}
+                <tr>
+                    <td>{{ venta.id }}</td>
+                    <td>{{ venta.fecha_venta|date:"d/m/Y H:i" }}</td>
+                    <td>{{ venta.cliente.nombres }} {{ venta.cliente.apellidos }}</td>
+                    <td>${{ venta.total_venta|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center">No hay ventas registradas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
